@@ -4,8 +4,10 @@ __pycache__/
 .tmp/
 .vscode/
 bdd/
+save/
 runs/
 inference/
+Datasets/
 *.pth
 *.pt
 *.tar
