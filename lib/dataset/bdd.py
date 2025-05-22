@@ -5,7 +5,7 @@ from .AutoDriveDataset import AutoDriveDataset
 from .convert import convert, id_dict, id_dict_single
 from tqdm import tqdm
 
-single_cls = True       # just detect vehicle
+single_cls = False       # just detect vehicle 只检测车辆
 
 class BddDataset(AutoDriveDataset):
     def __init__(self, cfg, is_train, inputsize, transform=None):
@@ -32,7 +32,8 @@ class BddDataset(AutoDriveDataset):
         for mask in tqdm(list(self.mask_list)):
             mask_path = str(mask)
             label_path = mask_path.replace(str(self.mask_root), str(self.label_root)).replace(".png", ".json")
-            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")
+            # image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")
+            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".png")
             lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
             with open(label_path, 'r') as f:
                 label = json.load(f)
