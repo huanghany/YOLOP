@@ -8,6 +8,7 @@ from sklearn.cluster import DBSCAN
 
 def build_targets(cfg, predictions, targets, model):
     '''
+    获取所有类别
     predictions
     [16, 3, 32, 32, 85]
     [16, 3, 16, 16, 85]
@@ -27,11 +28,11 @@ def build_targets(cfg, predictions, targets, model):
     # print(type(det))
     na, nt = det.na, targets.shape[0]  # number of anchors, targets
     tcls, tbox, indices, anch = [], [], [], []
-    gain = torch.ones(7, device=targets.device)  # normalized to gridspace gain
+    gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
     ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
     targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # append anchor indices
     
-    g = 0.5  # bias
+    g = 0.5  # bias 偏置
     off = torch.tensor([[0, 0],
                         [1, 0], [0, 1], [-1, 0], [0, -1],  # j,k,l,m
                         # [1, 1], [1, -1], [-1, 1], [-1, -1],  # jk,jm,lk,lm
@@ -76,7 +77,7 @@ def build_targets(cfg, predictions, targets, model):
         anch.append(anchors[a])  # anchors
         tcls.append(c)  # class
 
-    return tcls, tbox, indices, anch
+    return tcls, tbox, indices, anch  #
 
 def morphological_process(image, kernel_size=5, func_type=cv2.MORPH_CLOSE):
     """

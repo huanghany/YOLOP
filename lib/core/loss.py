@@ -70,7 +70,7 @@ class MultiHeadLoss(nn.Module):
         tcls, tbox, indices, anchors = build_targets(cfg, predictions[0], targets[0], model)  # targets
 
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
-        cp, cn = smooth_BCE(eps=0.0)
+        cp, cn = smooth_BCE(eps=0.0)  #
 
         BCEcls, BCEobj, BCEseg = self.losses
 
@@ -96,24 +96,24 @@ class MultiHeadLoss(nn.Module):
                 iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
                 lbox += (1.0 - iou).mean()  # iou loss
 
-                # Objectness
+                # Objectness ojb损失 正样本保留iou 负样本为0
                 tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
 
                 # Classification
                 # print(model.nc)
                 if model.nc > 1:  # cls loss (only if multiple classes)
                     t = torch.full_like(ps[:, 5:], cn, device=device)  # targets
-                    t[range(n), tcls[i]] = cp
-                    lcls += BCEcls(ps[:, 5:], t)  # BCE
+                    t[range(n), tcls[i]] = cp  # 为正样本分配标签cp=1
+                    lcls += BCEcls(ps[:, 5:], t)  # BCE 只有正样本的分类损失
             lobj += BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
 
         drive_area_seg_predicts = predictions[1].view(-1)
         drive_area_seg_targets = targets[1].view(-1)
-        lseg_da = BCEseg(drive_area_seg_predicts, drive_area_seg_targets)
+        lseg_da = BCEseg(drive_area_seg_predicts, drive_area_seg_targets)  # 可行驶区域损失
 
         lane_line_seg_predicts = predictions[2].view(-1)
         lane_line_seg_targets = targets[2].view(-1)
-        lseg_ll = BCEseg(lane_line_seg_predicts, lane_line_seg_targets)
+        lseg_ll = BCEseg(lane_line_seg_predicts, lane_line_seg_targets)  # 车道线损失
 
         metric = SegmentationMetric(2)
         nb, _, height, width = targets[1].shape
@@ -125,7 +125,7 @@ class MultiHeadLoss(nn.Module):
         lane_line_pred = lane_line_pred[:, pad_h:height-pad_h, pad_w:width-pad_w]
         lane_line_gt = lane_line_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
         metric.reset()
-        metric.addBatch(lane_line_pred.cpu(), lane_line_gt.cpu())
+        metric.addBatch(lane_line_pred.cpu(), lane_line_gt.cpu())  #
         IoU = metric.IntersectionOverUnion()
         liou_ll = 1 - IoU
 
@@ -139,7 +139,7 @@ class MultiHeadLoss(nn.Module):
         liou_ll *= cfg.LOSS.LL_IOU_GAIN * self.lambdas[5]
 
         
-        if cfg.TRAIN.DET_ONLY or cfg.TRAIN.ENC_DET_ONLY or cfg.TRAIN.DET_ONLY:
+        if cfg.TRAIN.DET_ONLY or cfg.TRAIN.ENC_DET_ONLY or cfg.TRAIN.DET_ONLY:  # 单独训练时不计算损失
             lseg_da = 0 * lseg_da
             lseg_ll = 0 * lseg_ll
             liou_ll = 0 * liou_ll

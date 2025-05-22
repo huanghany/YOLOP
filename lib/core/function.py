@@ -107,8 +107,8 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
 
                 writer = writer_dict['writer']
                 global_steps = writer_dict['train_global_steps']
-                writer.add_scalar('train_loss', losses.val, global_steps)
-                # writer.add_scalar('train_acc', acc.val, global_steps)
+                writer.add_scalar('train_loss', losses.val, global_steps)  # 将loss加入tensorboard
+                # writer.add_scalar('train_acc', acc.val, global_steps)  # acc
                 writer_dict['train_global_steps'] = global_steps + 1
 
 
@@ -201,15 +201,15 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             ratio = shapes[0][1][0][0]
 
             t = time_synchronized()
-            det_out, da_seg_out, ll_seg_out= model(img)
+            det_out, da_seg_out, ll_seg_out= model(img)  # 输入模型
             t_inf = time_synchronized() - t
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0),img.size(0))
 
-            inf_out,train_out = det_out
+            inf_out,train_out = det_out  # [25600, 6]   （80x80+40x40+20x20)x3 (x1 y1 x2 y2 conf cls)
 
             #driving area segment evaluation
-            _,da_predict=torch.max(da_seg_out, 1)
+            _,da_predict=torch.max(da_seg_out, 1)  # (1, 2, 640, 640)
             _,da_gt=torch.max(target[1], 1)
             da_predict = da_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
             da_gt = da_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
@@ -225,7 +225,7 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             da_mIoU_seg.update(da_mIoU,img.size(0))
 
             #lane line segment evaluation
-            _,ll_predict=torch.max(ll_seg_out, 1)
+            _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
             _,ll_gt=torch.max(target[2], 1)
             ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
             ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
@@ -240,7 +240,7 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             ll_IoU_seg.update(ll_IoU,img.size(0))
             ll_mIoU_seg.update(ll_mIoU,img.size(0))
             
-            total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
+            total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss 计算总损失
             losses.update(total_loss.item(), img.size(0))
 
             #NMS

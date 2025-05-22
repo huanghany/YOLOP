@@ -80,7 +80,7 @@ def main():
     global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
 
     rank = global_rank
-    #print(rank)
+    print("rank:", rank)
     # TODO: handle distributed training logger
     # set the logger, tb_log_dir means tensorboard logdir
 
@@ -238,6 +238,15 @@ def main():
                 if k.split(".")[1] in Encoder_para_idx + Ll_Seg_Head_para_idx + Det_Head_para_idx:
                     print('freezing %s' % k)
                     v.requires_grad = False
+
+        if cfg.TRAIN.NO_DRIVABLE:
+            logger.info('freeze Da_Seg heads...！')
+            # print(model.named_parameters)
+            for k, v in model.named_parameters():
+                v.requires_grad = True  # train all layers
+                if k.split(".")[1] in Da_Seg_Head_para_idx:
+                    print('freezing %s' % k)
+                    v.requires_grad = False
         
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, device_ids=cfg.GPUS)
@@ -320,9 +329,9 @@ def main():
             train_loader.sampler.set_epoch(epoch)
         # train for one epoch
         train(cfg, train_loader, model, criterion, optimizer, scaler,
-              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)
+              epoch, num_batch, num_warmup, writer_dict, logger, device, rank)  # 一轮训练
         
-        lr_scheduler.step()
+        lr_scheduler.step()  # 更新学习率
 
         # evaluate on validation set
         if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:

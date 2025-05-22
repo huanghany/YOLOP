@@ -24,6 +24,7 @@ def run_anchor(logger,dataset, model, thr=4.0, imgsz=640):
         else model.model[model.detector_index]
     anchor_num = det.na * det.nl
     new_anchors = kmean_anchors(dataset, n=anchor_num, img_size=imgsz, thr=thr, gen=1000, verbose=False)
+    print(new_anchors)  # 输出新锚点
     new_anchors = torch.tensor(new_anchors, device=det.anchors.device).type_as(det.anchors)
     det.anchor_grid[:] = new_anchors.clone().view_as(det.anchor_grid)  # for inference
     det.anchors[:] = new_anchors.clone().view_as(det.anchors) / det.stride.to(det.anchors.device).view(-1, 1, 1)  # loss
