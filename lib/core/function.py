@@ -84,7 +84,7 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
         scaler.update()
 
         if rank in [-1, 0]:
-            # measure accuracy and record loss
+            # measure accuracy and record loss 计算acc 记录loss
             losses.update(total_loss.item(), input.size(0))
 
             # _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
