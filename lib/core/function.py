@@ -107,7 +107,14 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
 
                 writer = writer_dict['writer']
                 global_steps = writer_dict['train_global_steps']
+
                 writer.add_scalar('train_loss', losses.val, global_steps)  # 将loss加入tensorboard
+                writer.add_scalar('train_loss/train_det_loss', head_losses[0], global_steps)  #
+                writer.add_scalar('train_loss/train_ll_loss', head_losses[1], global_steps)  #
+                writer.add_scalar('train_loss/train_total_loss', total_loss, global_steps)  #
+
+                writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_steps)  # 将lr加入tensorboard
+
                 # writer.add_scalar('train_acc', acc.val, global_steps)  # acc
                 writer_dict['train_global_steps'] = global_steps + 1
 
@@ -486,6 +493,22 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     # print(ll_segment_result)
     detect_result = np.asarray([mp, mr, map50, map])
     # print('mp:{},mr:{},map50:{},map:{}'.format(mp, mr, map50, map))
+
+    writer = writer_dict['writer']
+    global_steps = writer_dict['valid_global_steps']
+
+    writer.add_scalar('val', losses.avg, global_steps)  # 将loss加入tensorboard
+    writer.add_scalar('val/val_det_map50', detect_result[2], global_steps)  #
+    writer.add_scalar('val/val_det_map', detect_result[3], global_steps)  #
+
+    writer.add_scalar('val/val_ll_loss', head_losses[1], global_steps)  #
+    writer.add_scalar('val/val_ll_acc', ll_segment_result[0], global_steps)  #
+    writer.add_scalar('val/val_ll_iou', ll_segment_result[1], global_steps)  #
+    writer.add_scalar('val/val_ll_miou', ll_segment_result[2], global_steps)  #
+
+
+    writer_dict['valid_global_steps'] = global_steps + 1
+
     #print segmet_result
     t = [T_inf.avg, T_nms.avg]
     return da_segment_result, ll_segment_result, detect_result, losses.avg, maps, t
