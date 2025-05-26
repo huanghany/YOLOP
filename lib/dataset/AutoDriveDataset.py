@@ -59,7 +59,13 @@ class AutoDriveDataset(Dataset):
         label_root = Path(cfg.DATASET.LABELROOT)
         mask_root = Path(cfg.DATASET.MASKROOT)
         lane_root = Path(cfg.DATASET.LANEROOT)
-        lane_robot_root = Path(cfg.DATASET.LANEROBOTROOT)  # robot lane
+
+        # 使用 getattr 获取 LANEROBOTROOT，如果不存在则为 None
+        lane_robot_root_str = getattr(cfg.DATASET, 'LANEROBOTROOT', None)  # cfg.DATASET.LANEROBOTROOT
+        if lane_robot_root_str:
+            self.lane_robot_root = Path(lane_robot_root_str)
+        else:
+            self.lane_robot_root = None
         if is_train:
             indicator = cfg.DATASET.TRAIN_SET
         else:
@@ -68,7 +74,7 @@ class AutoDriveDataset(Dataset):
         self.label_root = label_root / indicator
         self.mask_root = mask_root / indicator
         self.lane_root = lane_root / indicator
-        self.lane_robot_root = lane_robot_root / indicator   # robot lane
+
         # self.label_list = self.label_root.iterdir()
         self.mask_list = self.mask_root.iterdir()
 
