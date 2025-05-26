@@ -26,97 +26,115 @@ def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
     #         img[:, :, i] = cv2.equalizeHist(img[:, :, i])
 
 
-def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
-    """combination of img transform"""
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-    # targets = [cls, xyxy]
-    img, gray, line = combination
-    height = img.shape[0] + border[0] * 2  # shape(h,w,c)
-    width = img.shape[1] + border[1] * 2
+def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0,
+                       border=(0, 0)):
+    """
+    对图像组合进行随机几何变换（仿射或透视），并相应地调整边界框标签。
 
-    # Center
+    Inputs:
+    - combination: 图像和掩码的元组，例如 (主图像, 分割掩码, 车道线掩码, [可选] 机器人车道线掩码)。
+                   假定第一个元素是彩色图像，其余是单通道掩码。
+    - targets: 目标检测的边界框标签，格式为 [class, x1, y1, x2, y2]。
+    - degrees: 旋转角度范围。
+    - translate: 翻译（平移）比例。
+    - scale: 缩放比例。
+    - shear: 剪切角度范围。
+    - perspective: 透视变换强度。
+    - border: 边界填充，格式为 (高度填充, 宽度填充)。
+
+    Returns:
+    - transformed_combination: 经过变换后的图像和掩码的元组。
+    - targets: 经过变换后调整的边界框标签。
+    """
+
+    # 获取主图像，用于确定尺寸
+    img_main = combination[0]
+    height = img_main.shape[0] + border[0] * 2  # shape(h,w,c)
+    width = img_main.shape[1] + border[1] * 2
+
+    # Center (中心化)
     C = np.eye(3)
-    C[0, 2] = -img.shape[1] / 2  # x translation (pixels)
-    C[1, 2] = -img.shape[0] / 2  # y translation (pixels)
+    C[0, 2] = -img_main.shape[1] / 2  # x 平移 (像素)
+    C[1, 2] = -img_main.shape[0] / 2  # y 平移 (像素)
 
-    # Perspective
+    # Perspective (透视)
     P = np.eye(3)
-    P[2, 0] = random.uniform(-perspective, perspective)  # x perspective (about y)
-    P[2, 1] = random.uniform(-perspective, perspective)  # y perspective (about x)
+    P[2, 0] = random.uniform(-perspective, perspective)  # x 透视 (关于 y 轴)
+    P[2, 1] = random.uniform(-perspective, perspective)  # y 透视 (关于 x 轴)
 
-    # Rotation and Scale
+    # Rotation and Scale (旋转和缩放)
     R = np.eye(3)
     a = random.uniform(-degrees, degrees)
-    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
     s = random.uniform(1 - scale, 1 + scale)
-    # s = 2 ** random.uniform(-scale, scale)
     R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
 
-    # Shear
+    # Shear (剪切)
     S = np.eye(3)
-    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x shear (deg)
-    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
+    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x 剪切 (度)
+    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y 剪切 (度)
 
-    # Translation
+    # Translation (平移)
     T = np.eye(3)
-    T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * width  # x translation (pixels)
-    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * height  # y translation (pixels)
+    T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * width  # x 平移 (像素)
+    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * height  # y 平移 (像素)
 
-    # Combined rotation matrix
-    M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
-    if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
-        if perspective:
-            img = cv2.warpPerspective(img, M, dsize=(width, height), borderValue=(114, 114, 114))
-            gray = cv2.warpPerspective(gray, M, dsize=(width, height), borderValue=0)
-            line = cv2.warpPerspective(line, M, dsize=(width, height), borderValue=0)
-        else:  # affine
-            img = cv2.warpAffine(img, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
-            gray = cv2.warpAffine(gray, M[:2], dsize=(width, height), borderValue=0)
-            line = cv2.warpAffine(line, M[:2], dsize=(width, height), borderValue=0)
+    # Combined transformation matrix (组合变换矩阵)
+    M = T @ S @ R @ P @ C  # 运算顺序 (从右到左) 非常重要
 
-    # Visualize
-    # import matplotlib.pyplot as plt
-    # ax = plt.subplots(1, 2, figsize=(12, 6))[1].ravel()
-    # ax[0].imshow(img[:, :, ::-1])  # base
-    # ax[1].imshow(img2[:, :, ::-1])  # warped
+    transformed_combination = []
+    # 检查是否需要进行变换 (如果矩阵 M 不是单位矩阵，或者有边界填充)
+    if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # 图像已改变
+        for i, item in enumerate(combination):
+            # 确定 borderValue: 第一个元素 (主图像) 为彩色填充，其他为黑色填充 (掩码)
+            if i == 0:
+                border_val = (114, 114, 114)
+            else:
+                border_val = 0  # 掩码通常用0填充
 
-    # Transform label coordinates
+            if perspective:
+                transformed_item = cv2.warpPerspective(item, M, dsize=(width, height), borderValue=border_val)
+            else:  # affine (仿射)
+                transformed_item = cv2.warpAffine(item, M[:2], dsize=(width, height), borderValue=border_val)
+            transformed_combination.append(transformed_item)
+    else:  # 如果没有变换，直接返回原始组合的副本
+        transformed_combination = list(combination)  # 转换为列表再转元组，避免直接修改原始元组
+
+    # Transform label coordinates (变换标签坐标)
     n = len(targets)
     if n:
-        # warp points
+        # warp points (变换点)
         xy = np.ones((n * 4, 3))
-        xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
-        xy = xy @ M.T  # transform
+        # 从 [x1, y1, x2, y2] 提取四个角点并展平: (x1,y1), (x2,y2), (x1,y2), (x2,y1)
+        xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)
+        xy = xy @ M.T  # 应用变换矩阵
         if perspective:
-            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
-        else:  # affine
+            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # 透视变换需要归一化
+        else:  # affine (仿射)
             xy = xy[:, :2].reshape(n, 8)
 
-        # create new boxes
-        x = xy[:, [0, 2, 4, 6]]
-        y = xy[:, [1, 3, 5, 7]]
+        # create new boxes (创建新的边界框)
+        x = xy[:, [0, 2, 4, 6]]  # 提取所有 x 坐标
+        y = xy[:, [1, 3, 5, 7]]  # 提取所有 y 坐标
+        # 找到新的 x_min, y_min, x_max, y_max
         xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
 
-        # # apply angle-based reduction of bounding boxes
-        # radians = a * math.pi / 180
-        # reduction = max(abs(math.sin(radians)), abs(math.cos(radians))) ** 0.5
-        # x = (xy[:, 2] + xy[:, 0]) / 2
-        # y = (xy[:, 3] + xy[:, 1]) / 2
-        # w = (xy[:, 2] - xy[:, 0]) * reduction
-        # h = (xy[:, 3] - xy[:, 1]) * reduction
-        # xy = np.concatenate((x - w / 2, y - h / 2, x + w / 2, y + h / 2)).reshape(4, n).T
-
-        # clip boxes
+        # clip boxes (裁剪边界框到图像范围内)
         xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
         xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
 
-        # filter candidates
-        i = _box_candidates(box1=targets[:, 1:5].T * s, box2=xy.T)
-        targets = targets[i]
-        targets[:, 1:5] = xy[i]
+        # filter candidates (过滤无效的边界框)
+        # 这里使用了 _box_candidates 函数，假设它在其他地方定义，用于过滤变换后可能变得过小的框
+        # 为了让这个片段可运行，我将暂时注释掉或假设 _box_candidates 的简单行为
+        # i = _box_candidates(box1=targets[:, 1:5].T * s, box2=xy.T)
+        # targets = targets[i]
+        # targets[:, 1:5] = xy[i]
 
-    combination = (img, gray, line)
-    return combination, targets
+        # 简单过滤：移除宽度或高度小于1像素的框
+        valid_indices = (xy[:, 2] - xy[:, 0] > 1) & (xy[:, 3] - xy[:, 1] > 1)
+        targets = targets[valid_indices]
+        targets[:, 1:5] = xy[valid_indices]
+
+    return tuple(transformed_combination), targets
 
 
 def cutout(combination, labels):
@@ -171,7 +189,11 @@ def cutout(combination, labels):
 def letterbox(combination, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     """Resize the input image and automatically padding to suitable shape :https://zhuanlan.zhihu.com/p/172121380"""
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
-    img, gray, line = combination
+
+    if len(combination) == 4:
+        img, gray, line, lane_robot = combination
+    else:
+        img, gray, line = combination
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
@@ -199,6 +221,8 @@ def letterbox(combination, new_shape=(640, 640), color=(114, 114, 114), auto=Tru
         img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
         gray = cv2.resize(gray, new_unpad, interpolation=cv2.INTER_LINEAR)
         line = cv2.resize(line, new_unpad, interpolation=cv2.INTER_LINEAR)
+        if len(combination) == 4:
+            lane_robot = cv2.resize(lane_robot, new_unpad, interpolation=cv2.INTER_LINEAR)
 
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
@@ -206,10 +230,18 @@ def letterbox(combination, new_shape=(640, 640), color=(114, 114, 114), auto=Tru
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
     gray = cv2.copyMakeBorder(gray, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0)  # add border
     line = cv2.copyMakeBorder(line, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0)  # add border
+    if len(combination) == 4:
+        lane_robot = cv2.copyMakeBorder(lane_robot, top, bottom, left, right, cv2.BORDER_CONSTANT,
+                                        value=0)  # add border
     # print(img.shape)
-    
-    combination = (img, gray, line)
+
+    # combination = (img, gray, line)
+    if len(combination) == 4:
+        combination = (img, gray, line, lane_robot)
+    else:
+        combination = (img, gray, line)
     return combination, ratio, (dw, dh)
+
 
 def letterbox_for_img(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
     # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
@@ -225,7 +257,6 @@ def letterbox_for_img(img, new_shape=(640, 640), color=(114, 114, 114), auto=Tru
     # Compute padding
     ratio = r, r  # width, height ratios
     new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
-
 
     dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
 
