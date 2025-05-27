@@ -14,7 +14,7 @@ import random
 import cv2
 import os
 import math
-from torch.cuda import amp
+from torch import amp
 from tqdm import tqdm
 
 
@@ -72,7 +72,8 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
             for tgt in target:
                 assign_target.append(tgt.to(device))
             target = assign_target
-        with amp.autocast(enabled=device.type != 'cpu'):
+        with amp.autocast('cuda', enabled=device.type != 'cpu'):
+        # with amp.autocast(True):
             outputs = model(input)
             total_loss, head_losses = criterion(outputs, target, shapes,model)
             # print(head_losses)
@@ -208,7 +209,7 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             ratio = shapes[0][1][0][0]
 
             t = time_synchronized()
-            det_out, da_seg_out, ll_seg_out= model(img)  # 输入模型
+            det_out, da_seg_out, ll_seg_out, _= model(img)  # 输入模型
             t_inf = time_synchronized() - t
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0),img.size(0))

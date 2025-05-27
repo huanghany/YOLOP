@@ -10,7 +10,7 @@ import time
 import torch
 import torch.nn.parallel
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda import amp
+from torch import amp
 import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torch.optim
