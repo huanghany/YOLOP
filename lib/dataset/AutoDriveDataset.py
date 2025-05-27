@@ -47,6 +47,11 @@ class AutoDriveDataset(Dataset):
         self.griding_num = griding_num
         self.num_lanes = num_lanes
         self.row_anchor = row_anchor
+        self.row_anchor = [ 64,  68,  72,  76,  80,  84,  88,  92,  96, 100, 104, 108, 112,
+            116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164,
+            168, 172, 176, 180, 184, 188, 192, 196, 200, 204, 208, 212, 216,
+            220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268,
+            272, 276, 280, 284]
         if self.row_anchor is not None:
             self.row_anchor.sort()
 
@@ -377,7 +382,7 @@ class AutoDriveDataset(Dataset):
             # lane_robot_label 已经是 cv2 图像 (numpy 数组)
             lane_pts = self._get_index(lane_robot_label)  # (num_lanes, n, (y, x))
             # 获取车道线在行锚点处的坐标
-            w, h = img.size
+            w, h = img.shape[:2]
             cls_label = self._grid_pts(lane_pts, self.griding_num, w)  # 车道线标签 图像中每个采样点的列索引 需要处理后的图像宽度
             # (n, num_lanes) n 是采样点的数量，num_lanes 是车道线的数量。每个元素是一个整数，表示该采样点在网格中的列索引
             cls_label = torch.from_numpy(cls_label)  # 转换为Tensor
