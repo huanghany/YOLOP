@@ -115,16 +115,17 @@ class Bottleneck(nn.Module):
 
 class BottleneckCSP(nn.Module):
     # CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+        # ch_in输入通道数, ch_out输出通道数, number neck模块数量, shortcut是否使用捷径连接, groups卷积组数, expansion扩展率
         super(BottleneckCSP, self).__init__()
         c_ = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, c_, 1, 1)
-        self.cv2 = nn.Conv2d(c1, c_, 1, 1, bias=False)
+        self.cv2 = nn.Conv2d(c1, c_, 1, 1, bias=False)  # 仅卷积
         self.cv3 = nn.Conv2d(c_, c_, 1, 1, bias=False)
         self.cv4 = Conv(2 * c_, c2, 1, 1)
-        self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
-        self.act = nn.LeakyReLU(0.1, inplace=True)
-        self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
+        self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)  标准化
+        self.act = nn.LeakyReLU(0.1, inplace=True)  # 激活函数
+        self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])  # 包含n个neck 输入输出都是c_
 
     def forward(self, x):
         y1 = self.cv3(self.m(self.cv1(x)))

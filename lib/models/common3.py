@@ -16,7 +16,7 @@ class LaneParsingHead(nn.Module):
         self.cls_dim = cls_dim
         # 使用 math.prod 替代 np.prod 以保持纯PyTorch/Python风格，兼容Python 3.8+
         # 如果是旧版本Python，可以使用 functools.reduce(operator.mul, cls_dim) 或 np.prod
-        self.total_dim = math.prod(cls_dim)
+        self.total_dim = np.prod(cls_dim)
 
         # 1. Adaptive Pooling: 将输入特征图调整到目标空间尺寸 (9, 25)
         self.avg_pool = nn.AdaptiveAvgPool2d(target_spatial_size)
