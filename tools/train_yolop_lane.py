@@ -24,7 +24,7 @@ from tensorboardX import SummaryWriter
 import lib.dataset as dataset
 from lib.config import cfg
 from lib.config import update_config
-from lib.core.loss import get_loss
+from lib.core.loss import get_loss, YolopLaneLoss
 from lib.core.function import train
 from lib.core.function import validate
 from lib.core.general import fitness
@@ -128,7 +128,8 @@ def main():
     model = get_YOLOP_LANE_net(cfg).to(device)  # 根据配置获取模型并将其移动到指定设备
 
     # 定义损失函数和优化器
-    criterion = get_loss(cfg, device=device)  # 获取损失函数实例
+    # criterion = get_loss(cfg, device=device)  # 获取损失函数实例 （原）
+    criterion = YolopLaneLoss(cfg)  # 获取损失函数实例
     optimizer = get_optimizer(cfg, model)  # 获取优化器实例
 
     # 加载检查点模型
