@@ -10,7 +10,7 @@ import time
 import torch
 import torch.nn.parallel
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda import amp
+from torch import amp
 import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -188,9 +188,9 @@ def main():
             begin_epoch = checkpoint['epoch']
             # best_perf = checkpoint['perf']
             last_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])  # 加载模型状态字典
+            model.load_state_dict(checkpoint['state_dict'], strict=False)  # 加载模型状态字典
             # optimizer = get_optimizer(cfg, model) # 如果需要，可以重新获取优化器
-            optimizer.load_state_dict(checkpoint['optimizer'])  # 加载优化器状态
+            # optimizer.load_state_dict(checkpoint['optimizer'])  # 加载优化器状态
             logger.info("=> 已加载检查点 '{}' (epoch {})".format(
                 checkpoint_file, checkpoint['epoch']))
             #cfg.NEED_AUTOANCHOR = False     # 禁用自动锚框计算
@@ -387,18 +387,19 @@ def main():
 
         # 保存检查点模型和最佳模型 (仅在主进程保存)
         if rank in [-1, 0]:
-            savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')  # 当前epoch的模型保存路径
-            logger.info('=> 正在保存检查点到 {}'.format(savepath))
-            save_checkpoint(
-                epoch=epoch,
-                name=cfg.MODEL.NAME,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=final_output_dir,
-                filename=f'epoch-{epoch}.pth'  # 保存当前epoch的模型
-            )
+            if epoch % 20 == 0:
+                savepath = os.path.join(final_output_dir, f'epoch-{epoch}.pth')  # 当前epoch的模型保存路径
+                logger.info('=> 正在保存检查点到 {}'.format(savepath))
+                save_checkpoint(
+                    epoch=epoch,
+                    name=cfg.MODEL.NAME,
+                    model=model,
+                    # 'best_state_dict': model.module.state_dict(),
+                    # 'perf': perf_indicator,
+                    optimizer=optimizer,
+                    output_dir=final_output_dir,
+                    filename=f'epoch-{epoch}.pth'  # 保存当前epoch的模型
+                )
             save_checkpoint(
                 epoch=epoch,
                 name=cfg.MODEL.NAME,

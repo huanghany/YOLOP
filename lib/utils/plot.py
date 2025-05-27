@@ -25,6 +25,8 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
     # img = mmcv.imread(img)
     # img = img.copy()
     # seg = result[0]
+    if epoch % 20 != 0:  # 20轮打印一次
+        return img
     if palette is None:
         palette = np.random.randint(
                 0, 255, size=(3, 3))
@@ -83,7 +85,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        print(label)
+        # print(label)
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
 
