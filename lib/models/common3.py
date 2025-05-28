@@ -44,7 +44,7 @@ class LaneParsingHead(nn.Module):
 
     def forward(self, x):
         # x 是原始输入图像，而不是中间特征图
-        fea = x
+        # fea = x
         # print("input:", fea.shape)
         # x 是来自YOLOP骨干网络的特征图 (例如 cache[9])
 
