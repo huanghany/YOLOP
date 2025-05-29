@@ -33,7 +33,7 @@ def find_start_pos(row_sample,start_line):
 
 class RobotViewDataset(AutoDriveDataset):
     def __init__(self, cfg, is_train, inputsize, transform=None, griding_num=50, load_name=False,
-                 row_anchor=None, use_aux=False, segment_transform=None, num_lanes=4):
+                 row_anchor=None, use_aux=False, segment_transform=None, num_lanes=2):
         super().__init__(cfg, is_train, inputsize, transform,
                          griding_num=griding_num, row_anchor=row_anchor, num_lanes=num_lanes)
         self.db = self._get_db()

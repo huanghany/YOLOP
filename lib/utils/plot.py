@@ -25,8 +25,9 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
     # img = mmcv.imread(img)
     # img = img.copy()
     # seg = result[0]
-    if epoch % 20 != 0:  # 20轮打印一次
-        return img
+    if not is_demo:
+        if epoch % 20 != 0:  # 20轮打印一次
+            return img
     if palette is None:
         palette = np.random.randint(
                 0, 255, size=(3, 3))

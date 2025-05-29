@@ -39,6 +39,10 @@ class ParsingRelationLoss(nn.Module):  # 相似损失
     def forward(self, logits):
         # logits: (N, C, H, W)
         n, c, h, w = logits.shape  # 批量大小 通道数 高度 宽度
+        if torch.isinf(logits).any():
+            print('logits has infinity')
+        if torch.isnan(logits).any():
+            print('logits has nan')
         loss_all = []
         for i in range(0, h - 1):
             # 计算相邻行差值 (n,c,w)
@@ -250,7 +254,7 @@ class MultiHeadLoss(nn.Module):
 
 
 class YolopLaneLoss(nn.Module):
-    def __init__(self, cfg, lambdas=None):
+    def __init__(self, cfg, device, lambdas=None):
         super().__init__()
         self.cfg = cfg
         # self.model = model
@@ -262,14 +266,14 @@ class YolopLaneLoss(nn.Module):
         self.lambdas = lambdas
 
         self.losses = nn.ModuleList([
-            nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.LOSS.CLS_POS_WEIGHT])),  # Cls loss
-            nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.LOSS.OBJ_POS_WEIGHT])),  # Obj loss
-            nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([cfg.LOSS.SEG_POS_WEIGHT]))  # Seg loss
+            nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.LOSS.CLS_POS_WEIGHT])).to(device),  # Cls loss
+            nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.LOSS.OBJ_POS_WEIGHT])).to(device),  # Obj loss
+            nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([cfg.LOSS.SEG_POS_WEIGHT])).to(device)  # Seg loss
         ])
 
         # 新增的 lane_robot 损失函数实例
         self.lane_robot_losses = nn.ModuleList([
-            SoftmaxFocalLoss(gamma=2),  # Focal Loss for lane classification
+            SoftmaxFocalLoss(gamma=2, ignore_lb=0),  # Focal Loss for lane classification
             ParsingRelationLoss(),  # Relation Loss for lane similarity
             ParsingRelationDis()  # Relation Disparity Loss for lane shape
         ])
@@ -281,6 +285,11 @@ class YolopLaneLoss(nn.Module):
         # 新增
         # cfg.sim_loss_w, cfg.shp_loss_w (来自 get_loss_dict)
         # cfg.LOSS.LANE_ROBOT_GAIN (新的总的 lane_robot 损失的增益)
+
+    def forward(self, head_fields, head_targets, shapes, model):
+        total_loss, head_losses = self._forward_impl(head_fields, head_targets, shapes, model)
+
+        return total_loss, head_losses
 
     def _forward_impl(self, predictions, targets, shapes, model):
         """
@@ -366,7 +375,7 @@ class YolopLaneLoss(nn.Module):
         lane_robot_targets = targets[3]  # Ensure target is long type for FocalLoss
 
         # Calculate individual lane robot loss components
-        l_cls_robot = self.lane_robot_losses[0](lane_robot_predicts, lane_robot_targets)
+        l_cls_robot = self.lane_robot_losses[0](lane_robot_predicts, lane_robot_targets)  #
         l_sim_robot = self.lane_robot_losses[1](lane_robot_predicts)
         l_shp_robot = self.lane_robot_losses[2](lane_robot_predicts)
 

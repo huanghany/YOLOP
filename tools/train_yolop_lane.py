@@ -4,6 +4,8 @@ import math
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+# os.environ['TORCH_USE_CUDA_DSA'] = '1'
 
 import pprint
 import time
@@ -129,7 +131,7 @@ def main():
 
     # 定义损失函数和优化器
     # criterion = get_loss(cfg, device=device)  # 获取损失函数实例 （原）
-    criterion = YolopLaneLoss(cfg)  # 获取损失函数实例
+    criterion = YolopLaneLoss(cfg, device=device)  # 获取损失函数实例
     optimizer = get_optimizer(cfg, model)  # 获取优化器实例
 
     # 加载检查点模型
@@ -186,7 +188,7 @@ def main():
         if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
             logger.info("=> 正在加载检查点 '{}'".format(checkpoint_file))
             checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
+            # begin_epoch = checkpoint['epoch']
             # best_perf = checkpoint['perf']
             last_epoch = checkpoint['epoch']
             model.load_state_dict(checkpoint['state_dict'], strict=False)  # 加载模型状态字典
@@ -260,6 +262,15 @@ def main():
                 if k.split(".")[1] in Da_Seg_Head_para_idx:
                     print('冻结 %s' % k)
                     v.requires_grad = False
+
+        if cfg.TRAIN.NO_LL:  # 不训练车道线分支
+            logger.info('冻结车道线分割头...')
+            for k, v in model.named_parameters():
+                v.requires_grad = True  # 默认所有层都可训练
+                # 如果参数属于编码器、检测头或可行驶区域分割头，则冻结
+                if k.split(".")[1] in Ll_Seg_Head_para_idx:
+                    print('冻结 %s' % k)
+                    v.requires_grad = False
     # 模型并行化设置
     if rank == -1 and torch.cuda.device_count() > 1:
         # 如果不是DDP模式且有多个GPU，使用DataParallel
@@ -283,6 +294,7 @@ def main():
     # 实例化训练数据集
     train_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
         cfg=cfg,
+        griding_num=cfg.MODEL.GRIFING_NUM,
         is_train=True,  # 训练模式
         inputsize=cfg.MODEL.IMAGE_SIZE,  # 输入图像大小 [320, 320]
         transform=transforms.Compose([  # 图像变换
@@ -311,6 +323,7 @@ def main():
         valid_dataset = eval('dataset.' + cfg.DATASET.DATASET)(
             cfg=cfg,
             is_train=False,  # 验证模式
+            griding_num=cfg.MODEL.GRIFING_NUM,
             inputsize=cfg.MODEL.IMAGE_SIZE,
             transform=transforms.Compose([
                 transforms.ToTensor(),

@@ -32,7 +32,7 @@ class AutoDriveDataset(Dataset):
     """
     A general Dataset for some common function
     """
-    def __init__(self, cfg, is_train, inputsize=640, transform=None, griding_num=50, num_lanes=4, row_anchor=None):
+    def __init__(self, cfg, is_train, inputsize=640, transform=None, griding_num=50, num_lanes=2, row_anchor=None):
         """
         initial all the characteristic
 
@@ -55,7 +55,8 @@ class AutoDriveDataset(Dataset):
         if self.row_anchor is not None:
             self.row_anchor.sort()
 
-        self.is_train = is_train
+        # self.is_train = is_train
+        self.is_train = False
         self.cfg = cfg
         self.transform = transform
         self.inputsize = inputsize
@@ -66,11 +67,8 @@ class AutoDriveDataset(Dataset):
         lane_root = Path(cfg.DATASET.LANEROOT)
 
         # 使用 getattr 获取 LANEROBOTROOT，如果不存在则为 None
-        lane_robot_root_str = getattr(cfg.DATASET, 'LANEROBOTROOT', None)  # cfg.DATASET.LANEROBOTROOT
-        if lane_robot_root_str:
-            self.lane_robot_root = Path(lane_robot_root_str)
-        else:
-            self.lane_robot_root = None
+        lane_robot_root = getattr(cfg.DATASET, 'LANEROBOTROOT', None)  # cfg.DATASET.LANEROBOTROOT
+
         if is_train:
             indicator = cfg.DATASET.TRAIN_SET
         else:
@@ -79,7 +77,11 @@ class AutoDriveDataset(Dataset):
         self.label_root = label_root / indicator
         self.mask_root = mask_root / indicator
         self.lane_root = lane_root / indicator
-
+        if lane_robot_root:
+            lane_robot_root = Path(lane_robot_root)
+            self.lane_robot_root = lane_robot_root / indicator
+        else:
+            self.lane_robot_root = None
         # self.label_list = self.label_root.iterdir()
         self.mask_list = self.mask_root.iterdir()
 
@@ -216,7 +218,7 @@ class AutoDriveDataset(Dataset):
 
         lane_robot_label = None
         if "lane_robot" in data:
-            lane_robot_label = cv2.imread(data["lane_robot"])
+            lane_robot_label = cv2.imread(data["lane_robot"], -1)
 
         # print("lane_robot_label.shape:", lane_robot_label.shape) # 可以删除
         # print("seg_label.shape：", seg_label.shape) # 可以删除
@@ -226,18 +228,19 @@ class AutoDriveDataset(Dataset):
         resized_shape = self.inputsize
         if isinstance(resized_shape, list):
             resized_shape = max(resized_shape)
-        h0, w0 = img.shape[:2]  # orig hw
-        r = resized_shape / max(h0, w0)  # resize image to img_size
+        h0, w0 = img.shape[:2]  # orig hw 480 640
+        r = resized_shape / max(h0, w0)  # resize image to img_size 0.5
         if r != 1:  # always resize down, only resize up if training with augmentation
             interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
             img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
             seg_label = cv2.resize(seg_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
             lane_label = cv2.resize(lane_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
             if lane_robot_label is not None:
-                lane_robot_label = cv2.resize(lane_robot_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+                # lane_robot_label = cv2.resize(lane_robot_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+                lane_robot_label = cv2.resize(lane_robot_label, (int(w0 * r), int(h0 * r)), interpolation=cv2.INTER_NEAREST)  # 用最近临
 
         # 获取letterbox前的图像尺寸，用于后续计算ratio
-        h, w = img.shape[:2]
+        h, w = img.shape[:2]  # 240 320
 
         if lane_robot_label is not None:
             (img, seg_label, lane_label, lane_robot_label), ratio, pad = letterbox(
@@ -247,9 +250,9 @@ class AutoDriveDataset(Dataset):
                 (img, seg_label, lane_label), resized_shape, auto=True, scaleup=self.is_train)
 
         # 获取letterbox后的图像尺寸，用于车道线网格计算
-        h_letterbox, w_letterbox = img.shape[:2]
+        h_letterbox, w_letterbox = img.shape[:2]  # 256 320
 
-        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling (480 640) 0.5 0.5 0 8
         # ratio = (w / w0, h / h0)
         # print(resized_shape)
 
@@ -299,7 +302,7 @@ class AutoDriveDataset(Dataset):
 
             # if self.is_train:
             # random left-right flip
-            lr_flip = True  # 左右翻转
+            lr_flip = False  # 左右翻转  不能要
             if lr_flip and random.random() < 0.5:
                 img = np.fliplr(img)
                 seg_label = np.fliplr(seg_label)
@@ -313,8 +316,8 @@ class AutoDriveDataset(Dataset):
             ud_flip = False  # 未启用上下翻转
             if ud_flip and random.random() < 0.5:
                 img = np.flipud(img)
-                seg_label = np.flipud(seg_label)  # 修正拼写错误 filpud -> flipud
-                lane_label = np.flipud(lane_label)  # 修正拼写错误 filpud -> flipud
+                seg_label = np.flipud(seg_label)  #
+                lane_label = np.flipud(lane_label)  #
                 if lane_robot_label is not None:  # 对robot lane标签也进行翻转
                     lane_robot_label = np.flipud(lane_robot_label)
                 if len(labels):
@@ -380,15 +383,34 @@ class AutoDriveDataset(Dataset):
                 self.row_anchor is not None and \
                 self.num_lanes is not None:
             # lane_robot_label 已经是 cv2 图像 (numpy 数组)
+            scale_label = lane_robot_label.copy()
+            if lane_robot_label.max()>0:
+                scale_label = (scale_label/scale_label.max()*255).astype(np.uint8)
+            else:
+                scale_label = np.zeros_like(lane_robot_label, dtype=np.uint8)
+            # print("max:", lane_robot_label.max())
+            colored_mask = cv2.applyColorMap(scale_label, cv2.COLORMAP_JET)
+            is_labled_mask = (lane_robot_label > 0).astype(np.uint8)*255
+            combined_image = img.copy().astype(np.float32)
+            colored_mask_float = colored_mask.astype(np.float32)
+            rows, cols =np.where(is_labled_mask>0)
+            combined_mask = cv2.addWeighted(img[rows, cols], 0.5, colored_mask[rows, cols], 0.5, 0)
+            combined_image[rows, cols] = combined_mask
+
+            combined_image = np.clip(combined_image, 0, 255).astype(np.uint8)
+            cv2.imwrite(f'./label_pic/lane_label_{idx}.png', combined_image)
             lane_pts = self._get_index(lane_robot_label)  # (num_lanes, n, (y, x))
+            # print("lane_points:", lane_pts)
             # 获取车道线在行锚点处的坐标
-            w, h = img.shape[:2]
+            h, w = img.shape[:2]
             cls_label = self._grid_pts(lane_pts, self.griding_num, w)  # 车道线标签 图像中每个采样点的列索引 需要处理后的图像宽度
             # (n, num_lanes) n 是采样点的数量，num_lanes 是车道线的数量。每个元素是一个整数，表示该采样点在网格中的列索引
+
             cls_label = torch.from_numpy(cls_label)  # 转换为Tensor
 
         if cls_label is not None:
             target = [labels_out, seg_label, lane_label, cls_label]  # 最后返回处理后标签
+
         else:
             target = [labels_out, seg_label, lane_label]
 
