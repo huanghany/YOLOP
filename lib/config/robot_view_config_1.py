@@ -83,7 +83,7 @@ _C.DATASET.HSV_V = 0.4  # image HSV-Value augmentation (fraction)
 _C.TRAIN = CN(new_allowed=True)
 _C.TRAIN.LR0 = 0.001  # initial learning rate (SGD=1E-2, Adam=1E-3)
 _C.TRAIN.LRF = 0.2  # final OneCycleLR learning rate (lr0 * lrf)
-_C.TRAIN.WARMUP_EPOCHS = 10.0  # warmup轮次
+_C.TRAIN.WARMUP_EPOCHS = 10  # warmup轮次
 _C.TRAIN.WARMUP_BIASE_LR = 0.1
 _C.TRAIN.WARMUP_MOMENTUM = 0.8
 

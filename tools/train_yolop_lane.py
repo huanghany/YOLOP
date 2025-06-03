@@ -188,7 +188,7 @@ def main():
         if cfg.AUTO_RESUME and os.path.exists(checkpoint_file):
             logger.info("=> 正在加载检查点 '{}'".format(checkpoint_file))
             checkpoint = torch.load(checkpoint_file)
-            # begin_epoch = checkpoint['epoch']
+            # begin_epoch = checkpoint['epoch']  # 从预训练模型的轮次接着计算
             # best_perf = checkpoint['perf']
             last_epoch = checkpoint['epoch']
             model.load_state_dict(checkpoint['state_dict'], strict=False)  # 加载模型状态字典
@@ -356,7 +356,7 @@ def main():
             logger.info(str(det.anchors))
 
     # 训练
-    num_warmup = max(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)  # 学习率预热步数
+    num_warmup = min(round(cfg.TRAIN.WARMUP_EPOCHS * num_batch), 1000)  # 学习率预热步数
     scaler = amp.GradScaler(enabled=device.type != 'cpu')  # 自动混合精度 GradScaler，CPU模式下禁用
     print('=> 开始训练...')
     # 训练循环
