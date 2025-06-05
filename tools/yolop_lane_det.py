@@ -104,7 +104,8 @@ def detect(cfg, opt):
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # 预热模型 (在第一次推理前运行一次，优化性能)
-    img = torch.zeros((1, 3, opt.img_size, opt.img_size), device=device)
+    # img = torch.zeros((1, 3, opt.img_size, opt.img_size), device=device)
+    img = torch.zeros((1, 3, 256, 320), device=device)
     _ = model(img.half() if half else img) if device.type != 'cpu' else None
     model.eval()  # 设置为评估模式
 
@@ -131,7 +132,7 @@ def detect(cfg, opt):
 
         # 模型推理
         t1 = time_synchronized()
-        det_out, _, _, lane_robot_result = model(img_tensor)  # 只取目标检测和车道线输出
+        det_out, drive_area_result, _, lane_robot_result = model(img_tensor)  # 只取目标检测和车道线输出
         t2 = time_synchronized()
         inf_time.update(t2 - t1, img_tensor.size(0))  # 更新推理时间
 
@@ -254,7 +255,7 @@ if __name__ == '__main__':
                         # 请替换为你的模型权重路径
                         help='模型权重文件路径，例如: runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth')
     parser.add_argument('--source', type=str,
-                        default='/home/huayi/hhy/YOLOP/inference/huayi_1',
+                        default='/home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4',
                         # /home/huayi/hhy/YOLOP/inference/huayi_1
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4
                         help='输入源：可以是图像文件路径 (例如: inference/images/0304.png) 或包含图像的文件夹路径 (例如: inference/images/)')
@@ -265,8 +266,8 @@ if __name__ == '__main__':
     parser.add_argument('--griding-num', type=int, default=100, help='车道线模型输出的栅格数量')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='目标检测的置信度阈值')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='目标检测的IOU阈值 (用于NMS)')
-    parser.add_argument('--device', default='cpu', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
-    parser.add_argument('--save-dir', type=str, default='inference/hy_result_simplified_1',
+    parser.add_argument('--device', default='0, 1, 2', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
+    parser.add_argument('--save-dir', type=str, default='inference/hy_video_result_1',
                         help='保存推理结果的目录')
     parser.add_argument('--augment', action='store_true', help='是否使用数据增强进行推理 (通常不用于推理)')
     parser.add_argument('--update', action='store_true', help='是否更新所有模型 (通常不用于推理)')
