@@ -88,7 +88,10 @@ def detect(cfg, opt):
     # 加载模型
     model = get_YOLOP_LANE_net(cfg)
     checkpoint = torch.load(opt.weights, map_location=device)
-    model.load_state_dict(checkpoint)  # 加载模型权重
+    if "state_dict" in checkpoint:
+        model.load_state_dict(checkpoint["state_dict"])  # 加载模型权重
+    else:
+        model.load_state_dict(checkpoint)
     model = model.to(device)
     if half:
         model.half()  # 转换为FP16
@@ -146,6 +149,31 @@ def detect(cfg, opt):
 
         h_orig, w_orig, _ = img_orig_det.shape
 
+        result_img = img_orig_det.copy()
+
+        if drive_area_result is not None:
+            # Get the segmentation prediction (argmax over class dimension for item 0 in batch)
+            # da_output is (2, H_da, W_da), e.g. (2, 256, 320)
+            da_output = drive_area_result[0]
+            # da_seg_mask is (H_da, W_da) with values 0 (background) or 1 (drivable)
+            da_seg_mask = torch.argmax(da_output, dim=0).byte().cpu().numpy()
+
+            # Resize mask to original image size
+            da_seg_mask_resized = cv2.resize(da_seg_mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
+
+            # Create a color overlay for the drivable area
+            drivable_area_color_bgr = [0, 200, 0]  # Light green in BGR format
+
+            # Create an image for the overlay. Initialize with zeros (black).
+            color_overlay_da = np.zeros_like(img_orig_det, dtype=np.uint8)
+            # Where the mask is 1 (drivable), set the color.
+            color_overlay_da[da_seg_mask_resized == 1] = drivable_area_color_bgr
+
+            # Blend the overlay with the result_img
+            # result_img = original_img * (1-alpha) + color_overlay_da * alpha
+            alpha_da = 0.3  # Transparency of the drivable area
+            cv2.addWeighted(color_overlay_da, alpha_da, result_img, 1 - alpha_da, 0, result_img)
+
         # 但在实际项目中，请直接修改顶部的 postprocess_lanes 函数
         def _postprocess_lanes_with_dims(output, griding_num, actual_img_w, actual_img_h):
             out = output[0].data.cpu().numpy()
@@ -184,7 +212,7 @@ def detect(cfg, opt):
         lanes = _postprocess_lanes_with_dims(lane_robot_result, opt.griding_num, w_orig, h_orig)
 
         # 复制原始图像，以便在其上绘制所有结果
-        result_img = img_orig_det.copy()
+        # result_img = img_orig_det.copy()
 
         # 绘制目标检测框
         if len(det):
@@ -251,7 +279,7 @@ def detect(cfg, opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str,
-                        default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth',
+                        default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-06-05-18-15/final_state.pth',
                         # 请替换为你的模型权重路径
                         help='模型权重文件路径，例如: runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth')
     parser.add_argument('--source', type=str,
@@ -264,10 +292,10 @@ if __name__ == '__main__':
     parser.add_argument('--show', type=bool, default=False, help='是否显示处理后的图像窗口')
 
     parser.add_argument('--griding-num', type=int, default=100, help='车道线模型输出的栅格数量')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='目标检测的置信度阈值')
-    parser.add_argument('--iou-thres', type=float, default=0.45, help='目标检测的IOU阈值 (用于NMS)')
-    parser.add_argument('--device', default='0, 1, 2', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
-    parser.add_argument('--save-dir', type=str, default='inference/hy_video_result_1',
+    parser.add_argument('--conf-thres', type=float, default=0.1, help='目标检测的置信度阈值')
+    parser.add_argument('--iou-thres', type=float, default=0.2, help='目标检测的IOU阈值 (用于NMS)')
+    parser.add_argument('--device', default='0, 1, 2, 3, 4, 5', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
+    parser.add_argument('--save-dir', type=str, default='inference/hy_view_result_2',
                         help='保存推理结果的目录')
     parser.add_argument('--augment', action='store_true', help='是否使用数据增强进行推理 (通常不用于推理)')
     parser.add_argument('--update', action='store_true', help='是否更新所有模型 (通常不用于推理)')
