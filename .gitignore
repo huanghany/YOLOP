@@ -9,6 +9,7 @@ runs/
 inference/
 Datasets/
 label_pic/
+weights
 *.pth
 *.pt
 *.tar
