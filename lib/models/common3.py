@@ -21,7 +21,7 @@ class LaneParsingHead(nn.Module):
         # 全连接层，与 parsingNet 中的 self.cls 结构相同
         self.cls = nn.Sequential(
             # nn.Linear(flattened_size, 2048),
-            nn.Linear(2560, 2048),  # 1, 8,16,20
+            nn.Linear(8*32*40, 2048),  # 1, 8,16,20----> 1 8 32 40
             nn.ReLU(),
             nn.Linear(2048, self.total_dim),
         )

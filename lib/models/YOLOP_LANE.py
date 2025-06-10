@@ -26,7 +26,7 @@ YOLOP_lane_robot = [
     [-1, BottleneckCSP, [256, 256, 3]],  # 6 1 256 40 40
     [-1, Conv, [256, 512, 3, 2]],  # 7       1 512 20 20
     [-1, SPP, [512, 512, [5, 9, 13]]],  # 8 SPP 1 512 20 20
-    [-1, BottleneckCSP, [512, 512, 1, False]],  # 9 1 512 20 20
+    [-1, BottleneckCSP, [512, 512, 1, False]],  # 9 1 512 20 20 8 10
     [-1, Conv, [512, 256, 1, 1]],  # 10        1 256 20 20
     [-1, Upsample, [None, 2, 'nearest']],  # 11 1 256 40 40
     [[-1, 6], Concat, [1]],  # 12            1 512 40 40
@@ -68,7 +68,7 @@ YOLOP_lane_robot = [
 
     # 新添加的车道线头 (Parsing Head)
     # 输入来自模型第9层的输出 (SPP后的BottleneckCSP), 它的通道数是512
-    [13, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head
+    [16, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head 车道线检测头
 ]
 
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
     model = get_YOLOP_LANE_net(False)  # cfg参数通常用于加载预训练模型，这里为False
 
-    # 假设输入尺寸为640x640，与YOLOP论文中常用尺寸一致
+    # 假设输入尺寸为
     input_ = torch.randn((1, 3, 256, 320))
 
     # 执行前向传播，现在应该有4个输出
