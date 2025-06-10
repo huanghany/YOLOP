@@ -1,6 +1,7 @@
 import time
 from lib.core.evaluate import ConfusionMatrix,SegmentationMetric
 from lib.core.general import non_max_suppression,check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,box_iou,coco80_to_coco91_class,plot_images,ap_per_class,output_to_target
+from lib.utils.plot import postprocess_lanes_with_dims, visualize_lanes
 from lib.utils.utils import time_synchronized
 from lib.utils import plot_img_and_mask,plot_one_box,show_seg_result
 import torch
@@ -112,7 +113,7 @@ def train(cfg, train_loader, model, criterion, optimizer, scaler, epoch, num_bat
                 writer.add_scalar('train_loss', losses.val, global_steps)  # 将loss加入tensorboard
                 writer.add_scalar('train_loss/train_box_loss', head_losses[0], global_steps)  #
                 writer.add_scalar('train_loss/train_obj_loss', head_losses[1], global_steps)  #
-                writer.add_scalar('train_loss/train_cls_loss', head_losses[2], global_steps)  #
+                # writer.add_scalar('train_loss/train_cls_loss', head_losses[2], global_steps)  #
                 writer.add_scalar('train_loss/train_seg_ll_loss', head_losses[4], global_steps)  #
                 writer.add_scalar('train_loss/train_seg_da_loss', head_losses[3], global_steps)  #
                 writer.add_scalar('train_loss/train_iou_ll_loss', head_losses[5], global_steps)  #
@@ -240,22 +241,22 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             da_mIoU_seg.update(da_mIoU,img.size(0))
 
             #lane line segment evaluation
-            _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
-            _,ll_gt=torch.max(target[2], 1)
-            ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
-            ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
+            # _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
+            # _,ll_gt=torch.max(target[2], 1)
+            # ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
+            # ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
 
-            ll_metric.reset()
-            ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
-            ll_acc = ll_metric.lineAccuracy()
-            ll_IoU = ll_metric.IntersectionOverUnion()
-            ll_mIoU = ll_metric.meanIntersectionOverUnion()
+            # ll_metric.reset()
+            # ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
+            # ll_acc = ll_metric.lineAccuracy()
+            # ll_IoU = ll_metric.IntersectionOverUnion()
+            # ll_mIoU = ll_metric.meanIntersectionOverUnion()
 
-            ll_acc_seg.update(ll_acc,img.size(0))
-            ll_IoU_seg.update(ll_IoU,img.size(0))
-            ll_mIoU_seg.update(ll_mIoU,img.size(0))
+            # ll_acc_seg.update(ll_acc,img.size(0))
+            # ll_IoU_seg.update(ll_IoU,img.size(0))
+            # ll_mIoU_seg.update(ll_mIoU,img.size(0))
             
-            total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out, lane_robot_out), target, shapes,model)   #Compute loss 计算总损失
+            total_loss, head_losses = criterion((train_out, da_seg_out, ll_seg_out, lane_robot_out), target, shapes,model)   #Compute loss 计算总损失
             losses.update(total_loss.item(), img.size(0))
 
             #NMS
@@ -270,69 +271,54 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
                 T_nms.update(t_nms/img.size(0),img.size(0))
 
             if config.TEST.PLOTS:
-                if batch_i == 0:
-                    if epoch % 20 ==0:
-                        for i in range(test_batch_size):
-                            img_test = cv2.imread(paths[i])
-                            da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                            da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                            _, da_seg_mask = torch.max(da_seg_mask, 1)
+                if batch_i == 0 and epoch % 10 ==0:  #  and epoch % 20 ==0 20轮保存一次
+                    for i in range(test_batch_size):
+                        img_test = cv2.imread(paths[i])
+                        da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
+                        da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
+                        _, da_seg_mask = torch.max(da_seg_mask, 1)
 
-                            da_gt_mask = target[1][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                            da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
-                            _, da_gt_mask = torch.max(da_gt_mask, 1)
+                        da_gt_mask = target[1][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
+                        da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
+                        _, da_gt_mask = torch.max(da_gt_mask, 1)
 
-                            da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
-                            da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
-                            # seg_mask = seg_mask > 0.5
-                            # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                            img_test1 = img_test.copy()
-                            _ = show_seg_result(img_test, da_seg_mask, i,epoch,save_dir)
-                            _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
+                        da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
+                        da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
+                        # seg_mask = seg_mask > 0.5
+                        # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
+                        img_test1 = img_test.copy()
+                        _ = show_seg_result(img_test, da_seg_mask, i,epoch,save_dir)
+                        _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
 
-                            img_ll = cv2.imread(paths[i])
-                            ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                            ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                            _, ll_seg_mask = torch.max(ll_seg_mask, 1)
+                        # lane_robot 保存车道线预测图
+                        lanes_result = postprocess_lanes_with_dims(lane_robot_out[i], 100, img_test.shape[1], img_test.shape[0])
+                        img_test2 = img_test.copy()
+                        result_img = visualize_lanes(img_test2, lanes_result)
+                        cv2.imwrite(save_dir + "/batch_{}_{}_ll_pred.png".format(epoch, i), result_img)
 
-                            ll_gt_mask = target[2][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                            ll_gt_mask = torch.nn.functional.interpolate(ll_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
-                            _, ll_gt_mask = torch.max(ll_gt_mask, 1)
+                        img_det = cv2.imread(paths[i])
+                        img_gt = img_det.copy()
+                        det = output[i].clone()
+                        if len(det):
+                            det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_det.shape).round()
+                        for *xyxy,conf,cls in reversed(det):
+                            #print(cls)
+                            label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                            plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=3)
+                        cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
 
-                            ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
-                            ll_gt_mask = ll_gt_mask.int().squeeze().cpu().numpy()
-                            # seg_mask = seg_mask > 0.5
-                            # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                            img_ll1 = img_ll.copy()
-                            _ = show_seg_result(img_ll, ll_seg_mask, i,epoch,save_dir, is_ll=True)
-                            _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, is_ll=True, is_gt=True)
-
-                            # lane_robot
-
-
-                            img_det = cv2.imread(paths[i])
-                            img_gt = img_det.copy()
-                            det = output[i].clone()
-                            if len(det):
-                                det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_det.shape).round()
-                            for *xyxy,conf,cls in reversed(det):
-                                #print(cls)
-                                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                                plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=3)
-                            cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
-
-                            labels = target[0][target[0][:, 0] == i, 1:]
-                            # print(labels)
-                            labels[:,1:5]=xywh2xyxy(labels[:,1:5])
-                            if len(labels):
-                                labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_gt.shape).round()
-                            for cls,x1,y1,x2,y2 in labels:
-                                #print(names)
-                                #print(cls)
-                                label_det_gt = f'{names[int(cls)]}'
-                                xyxy = (x1,y1,x2,y2)
-                                plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=3)
-                            cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
+                        labels = target[0][target[0][:, 0] == i, 1:]
+                        # print(labels)
+                        labels[:,1:5]=xywh2xyxy(labels[:,1:5])
+                        if len(labels):
+                            labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_gt.shape).round()
+                        for cls,x1,y1,x2,y2 in labels:
+                            #print(names)
+                            #print(cls)
+                            label_det_gt = f'{names[int(cls)]}'
+                            xyxy = (x1,y1,x2,y2)
+                            plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=3)
+                        cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
 
         # Statistics per image
         # output([xyxy,conf,cls])
@@ -501,7 +487,7 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     da_segment_result = (da_acc_seg.avg,da_IoU_seg.avg,da_mIoU_seg.avg)
     ll_segment_result = (ll_acc_seg.avg,ll_IoU_seg.avg,ll_mIoU_seg.avg)
 
-    # print(da_segment_result)
+    print(da_segment_result)
     # print(ll_segment_result)
     detect_result = np.asarray([mp, mr, map50, map])
     # print('mp:{},mr:{},map50:{},map:{}'.format(mp, mr, map50, map))

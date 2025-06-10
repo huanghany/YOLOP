@@ -1,9 +1,19 @@
 ## 处理pred结果的.json文件,画图
+from collections import OrderedDict
+
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
 import random
 
+import scipy
+
+# 定义车道线后处理所需的行锚点
+row_anchor = [64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112,
+              116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164,
+              168, 172, 176, 180, 184, 188, 192, 196, 200, 204, 208, 212, 216,
+              220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268,
+              272, 276, 280, 284]
 
 def plot_img_and_mask(img, mask, index,epoch,save_dir):
     classes = mask.shape[2] if len(mask.shape) > 2 else 1
@@ -60,7 +70,7 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
     img[color_mask != 0] = img[color_mask != 0] * 0.5 + color_seg[color_mask != 0] * 0.5
     # img = img * 0.5 + color_seg * 0.5
     img = img.astype(np.uint8)
-    img = cv2.resize(img, (1280,720), interpolation=cv2.INTER_LINEAR)
+    # img = cv2.resize(img, (1280,720), interpolation=cv2.INTER_LINEAR)
 
     if not is_demo:
         if not is_gt:
@@ -74,6 +84,67 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
             else:
                 cv2.imwrite(save_dir+"/batch_{}_{}_ll_seg_gt.png".format(epoch,index), img)  
     return img
+
+
+def visualize_lanes(img, lanes):
+    """
+    可视化车道线。不同车道类型使用不同颜色绘制。
+    args:
+        img (np.array): 原始图像（OpenCV格式）。
+        lanes (OrderedDict): 包含车道类型和对应点的结构化数据。
+    returns:
+        np.array: 绘制了车道线的图像。
+    """
+    # 定义不同车道类型的颜色映射
+    color_map = {
+        "current_left": (0, 255, 0),  # 绿色 - 当前车道左侧线
+        "current_right": (0, 0, 255),  # 红色 - 当前车道右侧线
+        # 其他车道类型将默认使用灰色
+    }
+
+    img_vis = img.copy()  # 复制图像以避免修改原始图像
+
+    for lane_type, points in lanes.items():
+        # 获取车道线颜色，如果不在 color_map 中则默认为灰色
+        color = color_map.get(lane_type, (128, 128, 128))  # 默认灰色
+        for (x, y) in points:
+            # 绘制车道线点
+            cv2.circle(img_vis, (x, y), 5, color, -1)  # -1 表示填充圆形
+    return img_vis
+
+def postprocess_lanes_with_dims(output, griding_num, actual_img_w, actual_img_h):
+    out = output.data.cpu().numpy()
+    out = out[:, ::-1, :]
+
+    prob = scipy.special.softmax(out[:-1, :, :], axis=0)
+    idx = np.arange(100).reshape(-1, 1, 1) + 1
+    loc = np.sum(prob * idx, axis=0)
+    out_j = np.argmax(out, axis=0)
+    loc[out_j == 100] = 0
+
+    lanes = OrderedDict({
+        "current_left": [],
+        "current_right": [],
+    })
+    model_w, model_h = 320, 256  # 模型输入尺寸
+    col_sample = np.linspace(0, model_w - 1, griding_num)
+    col_sample_w = col_sample[1] - col_sample[0]
+
+    for lane_idx in range(out.shape[2]):
+        lane = []
+        for point_idx in range(out.shape[1]):
+            if loc[point_idx, lane_idx] > 0:
+                x = int(loc[point_idx, lane_idx] * col_sample_w * actual_img_w / model_w)
+                y = int(row_anchor[::-1][point_idx] * actual_img_h / 288)
+                lane.append((x, y))
+
+        lane_type = {
+            0: "current_left",
+            1: "current_right",
+        }.get(lane_idx, f"other_lane_{lane_idx}")
+        lanes[lane_type] = lane
+    return lanes
+
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
