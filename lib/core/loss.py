@@ -399,8 +399,11 @@ class YolopLaneLoss(nn.Module):
         # Assuming lambdas list has been extended to include a 7th item (index 6) for this loss
         lane_robot_total_loss *= cfg.LOSS.LANE_ROBOT_GAIN * self.lambdas[6]  # New gain for lane_robot loss
 
-        if cfg.TRAIN.NO_DRIVABLE:
+        if cfg.TRAIN.NO_DRIVABLE:  # 不训练可通行区域时
             lseg_da = 0 * lseg_da
+        if cfg.TRAIN.NO_LL:  # 不训练可通行区域时
+            lseg_ll = 0 * lseg_ll
+            liou_ll = 0 * liou_ll
         # Conditional Loss Calculation based on training mode
         if cfg.TRAIN.DET_ONLY or cfg.TRAIN.ENC_DET_ONLY:  # cfg.TRAIN.DET_ONLY is duplicated in original code, fixed one instance
             lseg_da = 0 * lseg_da
