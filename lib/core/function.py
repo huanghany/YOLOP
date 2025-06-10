@@ -513,12 +513,11 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     writer.add_scalar('val/val_det_map50', detect_result[2], global_steps)  #
     writer.add_scalar('val/val_det_map', detect_result[3], global_steps)  #
 
-    writer.add_scalar('val/val_ll_loss', head_losses[1], global_steps)  #
-    writer.add_scalar('val/val_ll_loss', head_losses[1], global_steps)  #
-    writer.add_scalar('val/val_ll_acc', ll_segment_result[0], global_steps)  #
-    writer.add_scalar('val/val_ll_iou', ll_segment_result[1], global_steps)  #
-    writer.add_scalar('val/val_ll_miou', ll_segment_result[2], global_steps)  #
-
+    writer.add_scalar('val/val_da_loss', head_losses[3], global_steps)  #
+    writer.add_scalar('val/val_lane_robot_loss', head_losses[6], global_steps)  #
+    writer.add_scalar('val/val_da_acc', da_segment_result[0], global_steps)  #
+    writer.add_scalar('val/val_da_iou', da_segment_result[1], global_steps)  #
+    writer.add_scalar('val/val_da_miou', da_segment_result[2], global_steps)  #
 
     writer_dict['valid_global_steps'] = global_steps + 1
 
