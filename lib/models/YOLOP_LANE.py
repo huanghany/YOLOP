@@ -68,7 +68,7 @@ YOLOP_lane_robot = [
 
     # 新添加的车道线头 (Parsing Head)
     # 输入来自模型第9层的输出 (SPP后的BottleneckCSP), 它的通道数是512
-    [9, LaneParsingHead, [512, (101, 56, 2)]]  # 43: Lane pasrsing head
+    [13, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head
 ]
 
 
