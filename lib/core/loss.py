@@ -432,6 +432,14 @@ class YolopLaneLoss(nn.Module):
             liou_ll = 0 * liou_ll
             lane_robot_total_loss = 0 * lane_robot_total_loss  # Zero out new loss if only training drivable area
 
+        if cfg.TRAIN.ROBOT_LANE_ONLY:
+            lcls = 0 * lcls
+            lobj = 0 * lobj
+            lbox = 0 * lbox
+            lseg_ll = 0 * lseg_ll
+            liou_ll = 0 * liou_ll
+            lseg_da = 0 * lseg_da
+
         # Sum all losses
         loss = lbox + lobj + lcls + lseg_da + lseg_ll + liou_ll + lane_robot_total_loss
 

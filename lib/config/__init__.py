@@ -4,5 +4,5 @@
 # from .hy_traffic import _C as cfg
 # from .hy_traffic import update_config
 
-from .robot_view_config_4 import _C as cfg
-from .robot_view_config_4 import update_config
+from .robot_view_config_5 import _C as cfg
+from .robot_view_config_5 import update_config

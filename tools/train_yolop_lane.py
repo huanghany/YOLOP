@@ -172,12 +172,12 @@ def main():
         # 加载预训练的检测分支模型权重
         if os.path.exists(cfg.MODEL.PRETRAINED_DET):
             logger.info("=> 正在从 '{}' 加载检测分支模型权重".format(cfg.MODEL.PRETRAINED_DET))
-            det_idx_range = [str(i) for i in range(0, 25)]  # 检测分支相关的参数索引
+            det_idx_range = [str(i) for i in range(0, 34)]  # 检测分支相关的参数索引  (0,25)
             model_dict = model.state_dict()  # 获取当前模型的状态字典
             checkpoint_file = cfg.MODEL.PRETRAINED_DET
             checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
-            last_epoch = checkpoint['epoch']
+            # begin_epoch = checkpoint['epoch']
+            # last_epoch = checkpoint['epoch']
             # 过滤检查点中只与检测分支相关的权重
             checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
             model_dict.update(checkpoint_dict)  # 更新模型状态字典
@@ -271,6 +271,16 @@ def main():
                 if k.split(".")[1] in Ll_Seg_Head_para_idx:
                     print('冻结 %s' % k)
                     v.requires_grad = False
+
+        if cfg.TRAIN.ROBOT_LANE_ONLY:  # 只训练车道线det分支
+            logger.info('冻结编码器、检测头和可行驶区域分割头...')
+            for k, v in model.named_parameters():
+                v.requires_grad = True  # 默认所有层都可训练
+                # 如果参数属于编码器、检测头或可行驶区域分割头，则冻结
+                if k.split(".")[1] in Encoder_para_idx + Da_Seg_Head_para_idx + Det_Head_para_idx + Ll_Seg_Head_para_idx:
+                    print('冻结 %s' % k)
+                    v.requires_grad = False
+
     # 模型并行化设置
     if rank == -1 and torch.cuda.device_count() > 1:
         # 如果不是DDP模式且有多个GPU，使用DataParallel
