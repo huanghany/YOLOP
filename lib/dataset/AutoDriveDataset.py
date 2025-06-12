@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import cv2
 import numpy as np
 import pdb
@@ -10,6 +12,31 @@ from pathlib import Path
 from torch.utils.data import Dataset
 from ..utils import letterbox, augment_hsv, random_perspective, xyxy2xywh
 
+def visualize_lanes(img, lanes):
+    """
+    可视化车道线。不同车道类型使用不同颜色绘制。
+    args:
+        img (np.array): 原始图像（OpenCV格式）。
+        lanes (OrderedDict): 包含车道类型和对应点的结构化数据。
+    returns:
+        np.array: 绘制了车道线的图像。
+    """
+    # 定义不同车道类型的颜色映射
+    color_map = {
+        "current_left": (0, 255, 0),  # 绿色 - 当前车道左侧线
+        "current_right": (0, 0, 255),  # 红色 - 当前车道右侧线
+        # 其他车道类型将默认使用灰色
+    }
+
+    img_vis = img.copy()  # 复制图像以避免修改原始图像
+
+    for lane_type, points in lanes.items():
+        # 获取车道线颜色，如果不在 color_map 中则默认为灰色
+        color = color_map.get(lane_type, (128, 128, 128))  # 默认灰色
+        for (x, y) in points:
+            # 绘制车道线点
+            cv2.circle(img_vis, (x, y), 2, color, -1)  # -1 表示填充圆形
+    return img_vis
 
 def find_start_pos(row_sample,start_line):
     # row_sample = row_sample.sort()
@@ -27,6 +54,7 @@ def find_start_pos(row_sample,start_line):
             r = mid
         if row_sample[mid] == start_line:
             return mid
+
 
 class AutoDriveDataset(Dataset):
     """
@@ -55,8 +83,8 @@ class AutoDriveDataset(Dataset):
         if self.row_anchor is not None:
             self.row_anchor.sort()
 
-        # self.is_train = is_train
-        self.is_train = False
+        self.is_train = is_train
+        # self.is_train = False
         self.cfg = cfg
         self.transform = transform
         self.inputsize = inputsize
@@ -97,6 +125,30 @@ class AutoDriveDataset(Dataset):
         # self.target_type = cfg.MODEL.TARGET_TYPE
         self.shapes = np.array(cfg.DATASET.ORG_IMG_SIZE)
 
+    def transform_cls_label(self, cls_label, img):
+        lanes = OrderedDict({
+            "current_left": [],
+            "current_right": [],
+        })
+        model_w, model_h = img.shape[1], img.shape[0]  # 模型输入尺寸
+        col_sample = np.linspace(0, model_w - 1, self.griding_num)
+        col_sample_w = col_sample[1] - col_sample[0]
+
+        for lane_idx in range(2):
+            lane = []
+            for point_idx in range(cls_label.shape[0]):
+                if cls_label[point_idx, lane_idx] != 100:
+                    x = int(cls_label[point_idx, lane_idx] * col_sample_w * model_w / model_w)
+                    y = int(self.row_anchor[::][point_idx] * model_h / 288)
+                    lane.append((x, y))
+
+            lane_type = {
+                0: "current_left",
+                1: "current_right",
+            }.get(lane_idx, f"other_lane_{lane_idx}")
+            lanes[lane_type] = lane
+        return lanes
+
     def _get_index(self, label):
         # label 现在是cv2读取的numpy数组
         h, w = label.shape[:2]  # 从label.size 更改为 label.shape
@@ -121,41 +173,45 @@ class AutoDriveDataset(Dataset):
                 all_idx[lane_idx - 1, i, 1] = pos
 
         # data augmentation: extend the lane to the boundary of image
-        all_idx_cp = all_idx.copy()
-        for i in range(self.num_lanes):
-            if np.all(all_idx_cp[i, :, 1] == -1):
-                continue
-
-            valid = all_idx_cp[i, :, 1] != -1
-            valid_idx = all_idx_cp[i, valid, :]
-
-            if len(valid_idx) < 2:  # 如果有效点少于2个，无法进行多项式拟合，跳过
-                continue
-
-            # polyfit需要至少2个点，确保valid_idx_half也有足够多的点
-            valid_idx_half = valid_idx[len(valid_idx) // 2:, :]
-            if len(valid_idx_half) < 2:
-                if len(valid_idx_half) == 1:  # 如果只有一个点，近似为水平线
-                    p = [0, valid_idx_half[0, 1]]  # 斜率0，截距为y值
-                else:  # 没有点，跳过
+        extend_lane_to_boundary = False
+        if extend_lane_to_boundary:
+            all_idx_cp = all_idx.copy()
+            for i in range(self.num_lanes):
+                if np.all(all_idx_cp[i, :, 1] == -1):
                     continue
-            else:
-                p = np.polyfit(valid_idx_half[:, 0], valid_idx_half[:, 1], deg=1)
 
-            start_line = valid_idx_half[-1, 0]
-            pos = find_start_pos(all_idx_cp[i, :, 0], start_line) + 1
+                valid = all_idx_cp[i, :, 1] != -1
+                valid_idx = all_idx_cp[i, valid, :]
 
-            fitted = np.polyval(p, all_idx_cp[i, pos:, 0])
-            fitted = np.array([-1 if y < 0 or y > w - 1 else y for y in fitted])
+                if len(valid_idx) < 2:  # 如果有效点少于2个，无法进行多项式拟合，跳过
+                    continue
 
-            # 将拟合结果填充到-1的位置
-            for k in range(pos, all_idx_cp.shape[1]):
-                if k - pos < len(fitted) and all_idx_cp[i, k, 1] == -1:  # 确保索引不越界，只填充-1的位置
-                    all_idx_cp[i, k, 1] = fitted[k - pos]
+                # polyfit需要至少2个点，确保valid_idx_half也有足够多的点
+                valid_idx_half = valid_idx[len(valid_idx) // 2:, :]
+                if len(valid_idx_half) < 2:
+                    if len(valid_idx_half) == 1:  # 如果只有一个点，近似为水平线
+                        p = [0, valid_idx_half[0, 1]]  # 斜率0，截距为y值
+                    else:  # 没有点，跳过
+                        continue
+                else:
+                    p = np.polyfit(valid_idx_half[:, 0], valid_idx_half[:, 1], deg=1)
 
-        if -1 in all_idx_cp[:, :, 0]:
-            pdb.set_trace()
-        return all_idx_cp  # 输出
+                start_line = valid_idx_half[-1, 0]
+                pos = find_start_pos(all_idx_cp[i, :, 0], start_line) + 1
+
+                fitted = np.polyval(p, all_idx_cp[i, pos:, 0])
+                fitted = np.array([-1 if y < 0 or y > w - 1 else y for y in fitted])
+
+                # 将拟合结果填充到-1的位置
+                for k in range(pos, all_idx_cp.shape[1]):
+                    if k - pos < len(fitted) and all_idx_cp[i, k, 1] == -1:  # 确保索引不越界，只填充-1的位置
+                        all_idx_cp[i, k, 1] = fitted[k - pos]
+
+            if -1 in all_idx_cp[:, :, 0]:
+                pdb.set_trace()
+            return all_idx_cp  # 输出
+        else:
+            return all_idx
 
     def _grid_pts(self, pts, num_cols, w):
         # pts : numlane,n,2
@@ -237,7 +293,10 @@ class AutoDriveDataset(Dataset):
             lane_label = cv2.resize(lane_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
             if lane_robot_label is not None:
                 # lane_robot_label = cv2.resize(lane_robot_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
-                lane_robot_label = cv2.resize(lane_robot_label, (int(w0 * r), int(h0 * r)), interpolation=cv2.INTER_NEAREST)  # 用最近临
+                kernel_size = 3
+                kernel = np.ones((kernel_size, kernel_size), np.uint8)
+                dilate_label = cv2.dilate(lane_robot_label, kernel, iterations=1)
+                lane_robot_label = cv2.resize(dilate_label, (int(w0 * r), int(h0 * r)), interpolation=cv2.INTER_NEAREST)  # 用最近临
 
         # 获取letterbox前的图像尺寸，用于后续计算ratio
         h, w = img.shape[:2]  # 240 320
@@ -269,6 +328,7 @@ class AutoDriveDataset(Dataset):
 
         if self.is_train:
             if lane_robot_label is not None:
+
                 combination = (img, seg_label, lane_label, lane_robot_label)
                 (img, seg_label, lane_label, lane_robot_label), labels = random_perspective(
                     combination=combination,
@@ -391,7 +451,7 @@ class AutoDriveDataset(Dataset):
             # print("max:", lane_robot_label.max())
             colored_mask = cv2.applyColorMap(scale_label, cv2.COLORMAP_JET)
             is_labled_mask = (lane_robot_label > 0).astype(np.uint8)*255
-            combined_image = img.copy().astype(np.float32)
+            combined_image = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB).astype(np.float32)
             colored_mask_float = colored_mask.astype(np.float32)
             rows, cols =np.where(is_labled_mask>0)
             combined_mask = cv2.addWeighted(img[rows, cols], 0.5, colored_mask[rows, cols], 0.5, 0)
@@ -405,6 +465,10 @@ class AutoDriveDataset(Dataset):
             h, w = img.shape[:2]
             cls_label = self._grid_pts(lane_pts, self.griding_num, w)  # 车道线标签 图像中每个采样点的列索引 需要处理后的图像宽度
             # (n, num_lanes) n 是采样点的数量，num_lanes 是车道线的数量。每个元素是一个整数，表示该采样点在网格中的列索引
+
+            cls_label_transform = self.transform_cls_label(cls_label, img)
+            result_image = visualize_lanes(cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB), cls_label_transform)
+            cv2.imwrite(f'./label_pic/lane_label_{idx}_transform.png', result_image)
 
             cls_label = torch.from_numpy(cls_label)  # 转换为Tensor
 
