@@ -88,13 +88,14 @@ def random_perspective(combination, targets=(), degrees=10, translate=.1, scale=
             # 确定 borderValue: 第一个元素 (主图像) 为彩色填充，其他为黑色填充 (掩码)
             if i == 0:
                 border_val = (114, 114, 114)
+                interpolation_method = cv2.INTER_LINEAR
             else:
                 border_val = 0  # 掩码通常用0填充
-
+                interpolation_method = cv2.INTER_NEAREST
             if perspective:
-                transformed_item = cv2.warpPerspective(item, M, dsize=(width, height), borderValue=border_val)
+                transformed_item = cv2.warpPerspective(item, M, dsize=(width, height), borderValue=border_val, flags=interpolation_method)
             else:  # affine (仿射)
-                transformed_item = cv2.warpAffine(item, M[:2], dsize=(width, height), borderValue=border_val)
+                transformed_item = cv2.warpAffine(item, M[:2], dsize=(width, height), borderValue=border_val, flags=interpolation_method)
             transformed_combination.append(transformed_item)
     else:  # 如果没有变换，直接返回原始组合的副本
         transformed_combination = list(combination)  # 转换为列表再转元组，避免直接修改原始元组
