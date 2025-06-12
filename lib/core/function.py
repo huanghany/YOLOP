@@ -1,7 +1,7 @@
 import time
-from lib.core.evaluate import ConfusionMatrix,SegmentationMetric
+from lib.core.evaluate import ConfusionMatrix, SegmentationMetric, LaneEval
 from lib.core.general import non_max_suppression,check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,box_iou,coco80_to_coco91_class,plot_images,ap_per_class,output_to_target
-from lib.utils.plot import postprocess_lanes_with_dims, visualize_lanes
+from lib.utils.plot import postprocess_lanes_with_dims, visualize_lanes, row_anchor
 from lib.utils.utils import time_synchronized
 from lib.utils import plot_img_and_mask,plot_one_box,show_seg_result
 import torch
@@ -15,7 +15,7 @@ import random
 import cv2
 import os
 import math
-from torch import amp
+from torch.cuda import amp
 from tqdm import tqdm
 
 
@@ -191,11 +191,16 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     da_mIoU_seg = AverageMeter()
 
     ll_acc_seg = AverageMeter()
+
     ll_IoU_seg = AverageMeter()
     ll_mIoU_seg = AverageMeter()
 
     T_inf = AverageMeter()
     T_nms = AverageMeter()
+    # 车道线检测指标
+    lane_acc_meter = AverageMeter()
+    lane_fp_meter = AverageMeter()
+    lane_fn_meter = AverageMeter()
 
     # switch to train mode
     model.eval()
@@ -239,6 +244,14 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             da_acc_seg.update(da_acc,img.size(0))
             da_IoU_seg.update(da_IoU,img.size(0))
             da_mIoU_seg.update(da_mIoU,img.size(0))
+
+            da_metric.reset()
+            lane_accuracy, lane_fp, lane_fn = LaneEval.bench(np.array(lane_robot_out), np.array(target[3]),
+                                                             np.array(row_anchor))
+            # 5. 更新 AverageMeter
+            lane_acc_meter.update(lane_accuracy, 1)
+            lane_fp_meter.update(lane_fp, 1)
+            lane_fn_meter.update(lane_fn, 1)
 
             #lane line segment evaluation
             # _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
@@ -492,6 +505,10 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     detect_result = np.asarray([mp, mr, map50, map])
     # print('mp:{},mr:{},map50:{},map:{}'.format(mp, mr, map50, map))
 
+    lane_eval_result = (lane_acc_meter.avg, lane_fp_meter.avg, lane_fn_meter.avg)
+    print(
+        f"Lane robot metric: Accuracy={lane_eval_result[0]:.4f}, FP={lane_eval_result[1]:.4f}, FN={lane_eval_result[2]:.4f}")
+
     writer = writer_dict['writer']
     global_steps = writer_dict['valid_global_steps']
 
@@ -500,16 +517,20 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
     writer.add_scalar('val/val_det_map', detect_result[3], global_steps)  #
 
     writer.add_scalar('val/val_da_loss', head_losses[3], global_steps)  #
-    writer.add_scalar('val/val_lane_robot_loss', head_losses[6], global_steps)  #
     writer.add_scalar('val/val_da_acc', da_segment_result[0], global_steps)  #
     writer.add_scalar('val/val_da_iou', da_segment_result[1], global_steps)  #
     writer.add_scalar('val/val_da_miou', da_segment_result[2], global_steps)  #
+
+    writer.add_scalar('val/val_lane_robot_loss', head_losses[6], global_steps)  #
+    writer.add_scalar('val/val_lane_Accuracy', lane_eval_result[0], global_steps)
+    writer.add_scalar('val/val_lane_FP', lane_eval_result[1], global_steps)
+    writer.add_scalar('val/val_lane_FN', lane_eval_result[2], global_steps)
 
     writer_dict['valid_global_steps'] = global_steps + 1
 
     #print segmet_result
     t = [T_inf.avg, T_nms.avg]
-    return da_segment_result, ll_segment_result, detect_result, losses.avg, maps, t
+    return da_segment_result, ll_segment_result, detect_result, lane_robot_result, losses.avg, maps, t
         
 
 
