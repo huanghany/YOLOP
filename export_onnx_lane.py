@@ -1,6 +1,6 @@
 import torch
 
-from lib.models.YOLOP_LANE import YOLOP_Lane_net, YOLOP_lane_robot
+from lib.models.YOLOP_LANE import YOLOP_Lane_net, YOLOP_lane_robot_no_ll_seg
 import argparse
 import onnx
 import onnxruntime as ort
@@ -16,21 +16,24 @@ if __name__ == "__main__":
     do_simplify = True
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = YOLOP_Lane_net(YOLOP_lane_robot)
-    checkpoint = torch.load('/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth', map_location=device)
-    model.load_state_dict(checkpoint)
+    model = YOLOP_Lane_net(YOLOP_lane_robot_no_ll_seg)  # 读取不包含车道线分割的网络
+    checkpoint = torch.load('/home/hhy/huayi/YOLOP/weights/save.pth', map_location=device)  # 要转换模型
+    if "state_dict" in checkpoint:
+        model.load_state_dict(checkpoint['state_dict'])
+    else:
+        model.load_state_dict(checkpoint)
     model.eval()
 
     height = args.height
     width = args.width
     print("Load ./weights/End-to-end.pth done!")
-    onnx_path = f'./weights/yolop-{height}-{width}-lane.onnx'
+    onnx_path = f'./weights/yolop-{height}-{width}-lane-v1-2.onnx'  # onnx模型保存路径和名字
     inputs = torch.randn(1, 3, height, width)
 
     print(f"Converting to {onnx_path}")
     torch.onnx.export(model, inputs, onnx_path,
                       verbose=False, opset_version=12, input_names=['images'],
-                      output_names=['det_out', 'drive_area_seg', 'lane_line_seg'])
+                      output_names=['det_out', 'det_big', 'det_middle', 'det_small', 'da_seg', 'lane_robot'])  # 命名onnx模型输出层名字
     print('convert', onnx_path, 'to onnx finish!!!')
     # Checks
     model_onnx = onnx.load(onnx_path)  # load onnx model
@@ -57,7 +60,3 @@ if __name__ == "__main__":
         print('read failed')
         raise e
 
-    """
-    PYTHONPATH=. python3 ./export_onnx.py --height 640 --width 640
-    PYTHONPATH=. python3 ./export_onnx.py --height 320 --width 320
-    """
