@@ -1,3 +1,4 @@
+import os
 from collections import OrderedDict
 
 import cv2
@@ -458,7 +459,9 @@ class AutoDriveDataset(Dataset):
             combined_image[rows, cols] = combined_mask
 
             combined_image = np.clip(combined_image, 0, 255).astype(np.uint8)
-            cv2.imwrite(f'./label_pic/lane_label_{idx}.png', combined_image)
+            save_label_dir = './label_pic'  # 标签图像结果保存目录
+            os.makedirs(save_label_dir, exist_ok=True)
+            cv2.imwrite(f'{save_label_dir}/lane_label_{idx}.png', combined_image)
             lane_pts = self._get_index(lane_robot_label)  # (num_lanes, n, (y, x))
             # print("lane_points:", lane_pts)
             # 获取车道线在行锚点处的坐标
@@ -468,7 +471,7 @@ class AutoDriveDataset(Dataset):
 
             cls_label_transform = self.transform_cls_label(cls_label, img)
             result_image = visualize_lanes(cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB), cls_label_transform)
-            cv2.imwrite(f'./label_pic/lane_label_{idx}_transform.png', result_image)
+            cv2.imwrite(f'{save_label_dir}/lane_label_{idx}_transform.png', result_image)
 
             cls_label = torch.from_numpy(cls_label)  # 转换为Tensor
 
