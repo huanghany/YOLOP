@@ -1,9 +1,9 @@
 # Model validation metrics
 
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 import torch
 from sklearn.linear_model import LinearRegression
 
@@ -15,6 +15,24 @@ def fitness(x):
     w = [0.0, 0.0, 0.1, 0.9]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
     return (x[:, :4] * w).sum(1)
 
+
+def generate_tusimple_lines(out,shape,griding_num):  # 将车道线结果/标签转换为坐标
+    img_w = 640.0
+    out_loc = out
+    lanes = []
+    for i in range(out_loc.shape[1]):
+        out_i = out_loc[:,i]
+        lane = [int(round((loc + 0.5) * img_w / (griding_num - 1))) if loc != griding_num  else -2 for loc in out_i]
+        lanes.append(lane)
+    return lanes
+
+def process_point(out):  # 对模型车道线输出结果后处理
+    prob = scipy.special.softmax(out[:-1, :, :], axis=0)
+    idx = np.arange(100).reshape(-1, 1, 1) + 1
+    loc = np.sum(prob * idx, axis=0)
+    out_j = np.argmax(out, axis=0)
+    loc[out_j == 100] = 100
+    return loc
 
 def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='precision-recall_curve.png', names=[]):
     """ Compute the average precision, given the recall and precision curves.
@@ -129,10 +147,13 @@ class LaneEval(object):
         return np.sum(np.where(np.abs(pred - gt) < thresh, 1., 0.)) / len(gt)
 
     @staticmethod
-    def bench(pred, gt, y_samples, running_time=300):
+    def bench(pred, gt, y_samples):  # 评估
+        pred = process_point(pred)  # 对模型车道线输出结果后处理
+        pred = np.array(generate_tusimple_lines(pred,0,100))  # 将车道线结果转换为x坐标
+        gt  = np.array(generate_tusimple_lines(gt,0,100))  # 将车道线标签转换为x坐标
         if any(len(p) != len(y_samples) for p in pred):
             raise Exception('Format of lanes error.')
-        if running_time > 200 or len(gt) + 2 < len(pred):
+        if len(gt) + 2 < len(pred):
             return 0., 0., 1.
         angles = [LaneEval.get_angle(np.array(x_gts), np.array(y_samples)) for x_gts in gt]
         threshs = [LaneEval.pixel_thresh / np.cos(angle) for angle in angles]
@@ -140,10 +161,10 @@ class LaneEval(object):
         fp, fn = 0., 0.
         matched = 0.
         for x_gts, thresh in zip(gt, threshs):
-            accs = [LaneEval.line_accuracy(np.array(x_preds), np.array(x_gts), thresh) for x_preds in pred]
+            accs = [LaneEval.line_accuracy(np.array(x_preds), np.array(x_gts), thresh) for x_preds in pred]  # 计算准确率
             max_acc = np.max(accs) if len(accs) > 0 else 0.
-            if max_acc < LaneEval.pt_thresh:
-                fn += 1
+            if max_acc < LaneEval.pt_thresh:  # 有百分之85的点阈值插值小于20
+                fn += 1  # 匹配上
             else:
                 matched += 1
             line_accs.append(max_acc)

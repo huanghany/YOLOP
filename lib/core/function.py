@@ -15,7 +15,7 @@ import random
 import cv2
 import os
 import math
-from torch.cuda import amp
+from torch import amp
 from tqdm import tqdm
 
 
@@ -245,13 +245,16 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             da_IoU_seg.update(da_IoU,img.size(0))
             da_mIoU_seg.update(da_mIoU,img.size(0))
 
-            da_metric.reset()
-            lane_accuracy, lane_fp, lane_fn = LaneEval.bench(np.array(lane_robot_out), np.array(target[3]),
+            # lane_acc_meter
+            for i in range(nb):
+                single_pred = lane_robot_out[i]
+                single_gt = target[3][i]
+                lane_accuracy, lane_fp, lane_fn = LaneEval.bench(np.array(single_pred.cpu()), np.array(single_gt.cpu()),
                                                              np.array(row_anchor))
-            # 5. 更新 AverageMeter
-            lane_acc_meter.update(lane_accuracy, 1)
-            lane_fp_meter.update(lane_fp, 1)
-            lane_fn_meter.update(lane_fn, 1)
+                # 5. 更新 AverageMeter
+                lane_acc_meter.update(lane_accuracy, 1)
+                lane_fp_meter.update(lane_fp, 1)
+                lane_fn_meter.update(lane_fn, 1)
 
             #lane line segment evaluation
             # _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
@@ -530,7 +533,7 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
 
     #print segmet_result
     t = [T_inf.avg, T_nms.avg]
-    return da_segment_result, ll_segment_result, detect_result, lane_robot_result, losses.avg, maps, t
+    return da_segment_result, ll_segment_result, detect_result, lane_eval_result, losses.avg, maps, t
         
 
 

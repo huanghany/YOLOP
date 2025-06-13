@@ -383,7 +383,7 @@ def main():
         # 定期或在训练结束时进行验证，且仅在主进程（rank -1 或 0）执行
         if (epoch % cfg.TRAIN.VAL_FREQ == 0 or epoch == cfg.TRAIN.END_EPOCH) and rank in [-1, 0]:
             # print('validate')
-            da_segment_results, ll_segment_results, detect_results, total_loss, maps, times = validate(
+            da_segment_results, ll_segment_results, detect_results, lane_robot_result, total_loss, maps, times = validate(
                 epoch, cfg, valid_loader, valid_dataset, model, criterion,
                 final_output_dir, tb_log_dir, writer_dict,
                 logger, device, rank
