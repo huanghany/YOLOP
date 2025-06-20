@@ -17,9 +17,7 @@ def filter_and_remap_state_dict(input_pth, output_pth, start_idx_to_delete, end_
     try:
         # 加载 state_dict，处理可能存在的嵌套
         checkpoint = torch.load(input_pth, map_location='cpu')
-        if 'model' in checkpoint:
-            state_dict = checkpoint['model']
-        elif 'state_dict' in checkpoint:
+        if 'state_dict' in checkpoint:
             state_dict = checkpoint['state_dict']
         else:
             state_dict = checkpoint
@@ -100,8 +98,8 @@ if __name__ == '__main__':
     # =================================================================================
 
     # 1. 设置输入和输出文件路径
-    INPUT_PTH_PATH = '/home/hhy/huayi/YOLOP/weights/epoch-340.pth'  # 你的原始模型文件
-    OUTPUT_PTH_PATH = '/home/hhy/huayi/YOLOP/weights/save.pth'  # 你想保存的新模型文件
+    INPUT_PTH_PATH = '/home/huayi/hhy/YOLOP/runs/RobotViewDataset(0610)/checkpoint.pth'  # 你的原始模型文件
+    OUTPUT_PTH_PATH = '/home/huayi/hhy/YOLOP/runs/RobotViewDataset(0610)/checkpoint_no_ll_seg.pth'  # 你想保存的新模型文件
 
     # 2. 指定要删除的层的索引范围 (从0开始计数)
     #    删除第34层到第42层，对应的索引是 33 到 41
