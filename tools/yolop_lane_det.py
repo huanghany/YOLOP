@@ -12,6 +12,8 @@ import torch
 import torchvision.transforms as transforms
 from numpy import random
 
+from multi_task_onnx_det import resize_unscale
+
 # 确保 BASE_DIR 正确指向项目根目录，以便导入 lib
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
@@ -152,12 +154,12 @@ def detect(cfg, opt):
         result_img = img_orig_det.copy()
 
         if drive_area_result is not None:
-            # Get the segmentation prediction (argmax over class dimension for item 0 in batch)
-            # da_output is (2, H_da, W_da), e.g. (2, 256, 320)
-            da_output = drive_area_result[0]
-            # da_seg_mask is (H_da, W_da) with values 0 (background) or 1 (drivable)
-            da_seg_mask = torch.argmax(da_output, dim=0).byte().cpu().numpy()
+            # da_output = drive_area_result[0]
+            pad_dh, pad_dw = 8, 0
+            new_unpad_h, new_unpad_w = 240, 320
+            da_output = drive_area_result[0, :, pad_dh: pad_dh + new_unpad_h, pad_dw: pad_dw + new_unpad_w]
 
+            da_seg_mask = torch.argmax(da_output, dim=0).byte().cpu().numpy()
             # Resize mask to original image size
             da_seg_mask_resized = cv2.resize(da_seg_mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
 
@@ -279,13 +281,14 @@ def detect(cfg, opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str,
-                        default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-06-05-18-15/final_state.pth',
+                        default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-06-19-17-50(backbone+lane_head)/final_state.pth',
                         # 请替换为你的模型权重路径
                         help='模型权重文件路径，例如: runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth')
     parser.add_argument('--source', type=str,
-                        default='/home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4',
-                        # /home/huayi/hhy/YOLOP/inference/huayi_1
+                        default='/home/huayi/hhy/Datasets/Lane_robot/shanxing/20250121-165847_山行左侧双向植保_auto.mp4',
+                        # /home/huayi/hhy/YOLOP/inference/robot_1
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4
+                        # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/20250415-181616_全流程产量巡检_5m_auto.mp4
                         help='输入源：可以是图像文件路径 (例如: inference/images/0304.png) 或包含图像的文件夹路径 (例如: inference/images/)')
     parser.add_argument('--img-size', type=int, default=320, help='推理时模型输入的图像尺寸 (正方形像素)')
     parser.add_argument('--save', type=bool, default=True, help='是否保存处理后的图像到 --save-dir 指定的目录')
@@ -294,8 +297,8 @@ if __name__ == '__main__':
     parser.add_argument('--griding-num', type=int, default=100, help='车道线模型输出的栅格数量')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='目标检测的置信度阈值')
     parser.add_argument('--iou-thres', type=float, default=0.2, help='目标检测的IOU阈值 (用于NMS)')
-    parser.add_argument('--device', default='0, 1, 2, 3, 4, 5', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
-    parser.add_argument('--save-dir', type=str, default='inference/hy_view_result_2',
+    parser.add_argument('--device', default='0, 1', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
+    parser.add_argument('--save-dir', type=str, default='/home/huayi/hhy/YOLOP/inference/robot_result_layer_16_lane',
                         help='保存推理结果的目录')
     parser.add_argument('--augment', action='store_true', help='是否使用数据增强进行推理 (通常不用于推理)')
     parser.add_argument('--update', action='store_true', help='是否更新所有模型 (通常不用于推理)')
