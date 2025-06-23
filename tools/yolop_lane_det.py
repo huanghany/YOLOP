@@ -201,7 +201,18 @@ def detect(cfg, opt):
                     if loc[point_idx, lane_idx] > 0:
                         x = int(loc[point_idx, lane_idx] * col_sample_w * actual_img_w / model_w)
                         y = int(row_anchor[::-1][point_idx] * actual_img_h / 288)
-                        lane.append((x, y))
+                        # lane.append((x, y))
+                        y_anchor_on_288 = row_anchor[point_idx]
+                        y_model = y_anchor_on_288 * (256 / 288)
+                        # 步骤 2: 反向Padding，转换到(240, 320)空间
+                        y_resized = y_model - 8
+                        # 步骤 3: 过滤无效点 (检查点是否在padding区域之外)
+                        if 0 <= y_resized < 240:
+                            # 步骤 4: 反向缩放，转换到最终的原图(480, 640)空间
+                            y_final = y_resized * (actual_img_h / 240)
+                            lane.append((int(x), int(y_final)))
+                        else:
+                            lane.append((None, None))  # 点在padding区域，舍弃
 
                 lane_type = {
                     0: "current_left",
@@ -291,7 +302,7 @@ if __name__ == '__main__':
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/20250415-181616_全流程产量巡检_5m_auto.mp4
                         help='输入源：可以是图像文件路径 (例如: inference/images/0304.png) 或包含图像的文件夹路径 (例如: inference/images/)')
     parser.add_argument('--img-size', type=int, default=320, help='推理时模型输入的图像尺寸 (正方形像素)')
-    parser.add_argument('--save', type=bool, default=True, help='是否保存处理后的图像到 --save-dir 指定的目录')
+    parser.add_argument('--save', type=bool, default=False, help='是否保存处理后的图像到 --save-dir 指定的目录')
     parser.add_argument('--show', type=bool, default=False, help='是否显示处理后的图像窗口')
 
     parser.add_argument('--griding-num', type=int, default=100, help='车道线模型输出的栅格数量')

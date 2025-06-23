@@ -152,35 +152,75 @@ def visualize_lanes(img, lanes):
             cv2.circle(img_vis, (int(x), int(y)), 5, color, -1)
     return img_vis
 
+
 def postprocess_lanes_from_onnx(lane_robot_output_onnx, griding_num,
-                                actual_img_w, actual_img_h,
-                                model_input_w=320, model_input_h=256):
+                                       final_img_w=640, final_img_h=480,
+                                       model_input_w=320, model_input_h=256):
+    """
+    功能完善的后处理函数，包含以下所有转换：
+    1. 处理 row_anchor 基于不同高度（288）定义的问题。
+    2. 处理从模型输入(256, 320)到缩放后尺寸(240, 320)的padding问题。
+    3. 处理从(240, 320)到最终原图(480, 640)的缩放问题。
+    """
+
+    # --- 定义尺寸常量，使逻辑更清晰 ---
+    # `row_anchor` 设计时所基于的配置高度
+    cfg_input_height = 288.0
+    # 图像在padding前的尺寸
+    resized_img_h = 240
+    resized_img_w = 320
+    # 计算顶部padding
+    padding_top = (model_input_h - resized_img_h) // 2  # (256 - 240) / 2 = 8
+
+    # --- 模型输出解析（这部分逻辑不变）---
     out = lane_robot_output_onnx[0]
     prob = scipy.special.softmax(out[:-1, :, :], axis=0)
     idx = np.arange(griding_num).reshape(-1, 1, 1) + 1
     loc = np.sum(prob * idx, axis=0)
     out_j = np.argmax(out, axis=0)
     loc[out_j == griding_num] = 0
+
     lanes = OrderedDict({"current_left": [], "current_right": []})
+
+    # --- 坐标转换核心逻辑 ---
     col_sample = np.linspace(0, model_input_w - 1, griding_num)
     col_sample_w = col_sample[1] - col_sample[0]
+
     for lane_idx in range(loc.shape[1]):
         lane_points = []
         for point_idx in range(loc.shape[0]):
             if loc[point_idx, lane_idx] > 0:
-                x_model_space = loc[point_idx, lane_idx] * col_sample_w
-                x_orig_space = int(x_model_space * actual_img_w / model_input_w)
-                y_orig_space = int(row_anchor[point_idx] * actual_img_h / 288.0)
-                lane_points.append((x_orig_space, y_orig_space))
+                # 步骤 1: 计算点在模型输入空间(256, 320)中的坐标 (x_model, y_model)
+
+                # 计算 x_model
+                x_model = loc[point_idx, lane_idx] * col_sample_w
+                # 计算 y_model: 将基于288高度的row_anchor缩放到256的模型输入空间
+                y_anchor_on_288 = row_anchor[point_idx]
+                y_model = y_anchor_on_288 * (model_input_h / cfg_input_height)
+                # 步骤 2: 反向Padding，转换到(240, 320)空间
+                y_resized = y_model - padding_top
+                # 步骤 3: 过滤无效点 (检查点是否在padding区域之外)
+                if 0 <= y_resized < resized_img_h:
+                    # 步骤 4: 反向缩放，转换到最终的原图(480, 640)空间
+                    x_final = x_model * (final_img_w / resized_img_w)
+                    y_final = y_resized * (final_img_h / resized_img_h)
+                    lane_points.append((int(x_final), int(y_final)))
+                else:
+                    lane_points.append((None, None))  # 点在padding区域，舍弃
             else:
-                lane_points.append((None, None))
-        if lane_idx == 0: lane_type = "current_left"
-        elif lane_idx == 1: lane_type = "current_right"
-        else: lane_type = f"other_lane_{lane_idx}"
+                lane_points.append((None, None))  # 模型未检测到点
+
+        # 后续逻辑保持不变
+        if lane_idx == 0:
+            lane_type = "current_left"
+        elif lane_idx == 1:
+            lane_type = "current_right"
+        else:
+            lane_type = f"other_lane_{lane_idx}"
+
         if lane_type in lanes:
             lanes[lane_type] = [p for p in lane_points if p[0] is not None]
-        elif "other_lane" in lane_type:
-            lanes[lane_type] = [p for p in lane_points if p[0] is not None]
+
     return lanes
 
 def resize_unscale(img, new_shape=(640, 640), color=114):
@@ -214,7 +254,10 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
 
     execution_provider = "CUDAExecutionProvider" if ort.get_device() == 'GPU' else "CPUExecutionProvider"
     try:
-        ort_session = ort.InferenceSession(onnx_model_path, providers=[execution_provider])
+        session_options = ort.SessionOptions()
+        session_options.intra_op_num_threads = 4  # 算子内并行线程数
+        session_options.inter_op_num_threads = 2  # 算子间并行线程数
+        ort_session = ort.InferenceSession(onnx_model_path, providers=[execution_provider], sess_options=session_options)
         print(f"成功加载模型: {onnx_model_path}，使用 {execution_provider}。")
     except Exception as e:
         print(f"错误: 加载ONNX模型失败: {e}")
@@ -233,7 +276,7 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
     if save_image: # 仅当需要保存图片时创建目录和文件名
         os.makedirs(output_dir, exist_ok=True)
         base_img_name = os.path.splitext(os.path.basename(img_path))[0]
-        save_merge_path = os.path.join(output_dir, f"{base_img_name}_output_onnx.jpg")
+        save_merge_path = os.path.join(output_dir, f"{base_img_name}_output_onnx_1.jpg")
     else:
         save_merge_path = None # 如果不保存，路径设为None
 
@@ -352,7 +395,6 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
             processed_lanes = postprocess_lanes_from_onnx(
                 last_lane_robot_out,
                 griding_num=griding_num_param,
-                actual_img_w=original_width, actual_img_h=original_height,
                 model_input_w=model_input_shape[1], model_input_h=model_input_shape[0]
             )
             img_result = visualize_lanes(img_result, processed_lanes)
@@ -371,14 +413,14 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YOLOP ONNX模型推理脚本 (NumPy NMS)，支持预热和可选图片保存。")
-    parser.add_argument('--model', type=str, default="./weights/yolop-256-320-lane-v1-3.onnx", help='ONNX模型权重路径')
+    parser.add_argument('--model', type=str, default="./weights/yolop-256-320-lane-v2-3.onnx", help='ONNX模型权重路径')
     # v1.0    ./weights/yolop-256-320-lane-v1-0.onnx
     # v1.1    ./weights/yolop-256-320-lane-v1-1.onnx
     # v1.2    ./weights/yolop-256-320-lane-v1-2.onnx
     parser.add_argument('--img', type=str, default="./inference/robot_1/0114.png", help='推理图片路径')
-    parser.add_argument('--output_dir', type=str, default="./inference/robot_1_result_v1.0", help='保存结果的目录')
-    parser.add_argument('--num_runs', type=int, default=100, help='计算平均推理时间的正式运行次数')
-    parser.add_argument('--warmup_runs', type=int, default=10, help='模型预热运行次数 (0表示不预热)')
+    parser.add_argument('--output_dir', type=str, default="./inference/data_test", help='保存结果的目录')
+    parser.add_argument('--num_runs', type=int, default=1, help='计算平均推理时间的正式运行次数')
+    parser.add_argument('--warmup_runs', type=int, default=1, help='模型预热运行次数 (0表示不预热)')
     parser.add_argument('--save_image', type=float, default=True, help='是否保存输出图片 (默认不保存)')
 
     parser.add_argument('--griding_num', type=int, default=100, help='车道线后处理的栅格数量')
