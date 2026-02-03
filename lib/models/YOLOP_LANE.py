@@ -68,7 +68,7 @@ YOLOP_lane_robot = [
 
     # 新添加的车道线头 (Parsing Head)
     # 输入来自模型第9层的输出 (SPP后的BottleneckCSP), 它的通道数是512
-    [16, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head 车道线检测头
+    # [16, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head 车道线检测头
 ]
 
 YOLOP_lane_robot_no_ll_seg = [  # 去除了车道线分割层
@@ -112,7 +112,8 @@ YOLOP_lane_robot_no_ll_seg = [  # 去除了车道线分割层
     [-1, Upsample, [None, 2, 'nearest']],  # 32       1 8 640 640
     [-1, Conv, [8, 2, 3, 1]],  # 33 Driving area segmentation head 1 2 640 640
 
-    [16, LaneParsingHead, [256, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
+    # [16, LaneParsingHead, [256, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
+    [12, LaneParsingHead, [512, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
 ]
 
 class YOLOP_Lane_net(nn.Module):
@@ -151,6 +152,7 @@ class YOLOP_Lane_net(nn.Module):
             #     print (x.shape)
             with torch.no_grad():
                 model_out = self.forward(torch.zeros(1, 3, 256, s))  # 前向传播
+                # model_out = self.forward(torch.zeros(1, 3, 512, s))  # 前向传播
                 detects, _, _, _ = model_out
                 Detector.stride = torch.tensor([s / x.shape[-2] for x in detects])  # forward
             # print("stride"+str(Detector.stride ))
@@ -214,7 +216,8 @@ def get_YOLOP_LANE_net(cfg, **kwargs):
     Returns:
 
     """
-    m_block_cfg = YOLOP_lane_robot
+    # m_block_cfg = YOLOP_lane_robot
+    m_block_cfg = YOLOP_lane_robot_no_ll_seg
     model = YOLOP_Lane_net(m_block_cfg, **kwargs)
     return model
 

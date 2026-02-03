@@ -18,6 +18,7 @@ def visualize_labels(img_path, lane_path, da_seg_path, json_path, output_path):
         area_mask = np.array(Image.open(da_seg_path).convert('L'))  # 关键修改点
         # 精确识别255像素（仅处理可通行区域）
         area_mask = (area_mask == 255)
+        # area_mask = (area_mask == 1)
         if np.any(area_mask):
             area_color = (255, 255, 0, 80)  # 黄色半透明
             layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -61,24 +62,25 @@ def visualize_labels(img_path, lane_path, da_seg_path, json_path, output_path):
 
 if __name__ == "__main__":
     # 定义路径（根据实际位置调整）
-    root_path = "/home/huayi/hhy/YOLOP/Datasets/lane_robot_3/"
-    img_dir = root_path + "imgs" + "/train"  # 原始图片目录
-    lane_dir = root_path + "gt_instance_image_012" + "/train"  # 车道线标签目录
-    da_seg_dir = root_path + "da_seg" + "/train"  # 可通行区域标签目录
-    person_dir = root_path + "person_json" + "/train"  # 行人检测标签目录
+    root_path = "/home/huanghanyang/Datasets/rack_datasets/rack_datasets_v1/"
+    img_dir = root_path + "images" + "/train"  # 原始图片目录
+    lane_dir = root_path + "lane" + "/train"  # 车道线标签目录
+    da_seg_dir = root_path + "masks" + "/train"  # 可通行区域标签目录
+    person_dir = root_path + "json" + "/train"  # 行人检测标签目录
     output_dir = root_path + "visualize"  # 输出目录
 
     os.makedirs(output_dir, exist_ok=True)
 
     # 遍历所有原始图片
     for img_name in os.listdir(img_dir):
-        if img_name.lower().endswith(".png"):
+        if img_name.lower().endswith(".jpg"):
             base_name = os.path.splitext(img_name)[0]
 
             # 构建完整路径
             img_path = os.path.join(img_dir, img_name)
             lane_path = os.path.join(lane_dir, img_name)
-            da_seg_path = os.path.join(da_seg_dir, img_name)
+            img_png_name = img_name.replace("jpg", "png")
+            da_seg_path = os.path.join(da_seg_dir, img_png_name)
             json_path = os.path.join(person_dir, f"{base_name}.json")  # JSON无.png后缀
             output_path = os.path.join(output_dir, img_name)
 

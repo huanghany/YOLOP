@@ -18,6 +18,7 @@ class SoftmaxFocalLoss(nn.Module):
         # logits: (N, C, H, W)
         # labels: (N, H, W) or (N, 1, H, W)
         # Ensure labels are long type for NLLLoss
+        # return 0
         labels = labels.squeeze(1).long() if labels.dim() == 4 else labels.long()
 
         scores = F.softmax(logits, dim=1)  # (N, C, H, W)
@@ -38,6 +39,7 @@ class ParsingRelationLoss(nn.Module):  # 相似损失
 
     def forward(self, logits):
         # logits: (N, C, H, W)
+        # return 0
         n, c, h, w = logits.shape  # 批量大小 通道数 高度 宽度
         if torch.isinf(logits).any():
             print('logits has infinity')
@@ -61,6 +63,7 @@ class ParsingRelationDis(nn.Module):  # 形状损失
 
     def forward(self, x):
         # x: (N, C, H, W)
+        # return 0
         n, dim, num_rows, num_cols = x.shape
         # 使用softmax归一化前dim-1个通道 (N, C-1, H, W)
         x_processed = torch.nn.functional.softmax(x[:, :dim - 1, :, :], dim=1)
@@ -446,7 +449,7 @@ class YolopLaneLoss(nn.Module):
         # Return total loss and individual loss components for logging/monitoring
         return loss, (lbox.item(), lobj.item(), lcls.item(),
                       lseg_da.item(), lseg_ll.item(), liou_ll.item(),
-                      lane_robot_total_loss.item(),  # Add the total lane_robot loss here
+                      # lane_robot_total_loss.item(),  # Add the total lane_robot loss here
                       loss.item())
 
 

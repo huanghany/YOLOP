@@ -454,7 +454,7 @@ class AutoDriveDataset(Dataset):
             is_labled_mask = (lane_robot_label > 0).astype(np.uint8)*255
             combined_image = cv2.cvtColor(img.copy(), cv2.COLOR_BGR2RGB).astype(np.float32)
             colored_mask_float = colored_mask.astype(np.float32)
-            rows, cols =np.where(is_labled_mask>0)
+            rows, cols, _ =np.where(is_labled_mask>0)
             combined_mask = cv2.addWeighted(img[rows, cols], 0.5, colored_mask[rows, cols], 0.5, 0)
             combined_image[rows, cols] = combined_mask
 

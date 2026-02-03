@@ -296,8 +296,8 @@ if __name__ == '__main__':
                         # 请替换为你的模型权重路径
                         help='模型权重文件路径，例如: runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth')
     parser.add_argument('--source', type=str,
-                        default='/home/huayi/hhy/Datasets/Lane_robot/shanxing/20250121-165847_山行左侧双向植保_auto.mp4',
-                        # /home/huayi/hhy/YOLOP/inference/robot_1
+                        # default='/home/huayi/hhy/Datasets/Lane_robot/shanxing/20250121-165847_山行左侧双向植保_auto.mp4',
+                        default='/home/huayi/hhy/YOLOP/inference/robot_1',
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/20250415-181616_全流程产量巡检_5m_auto.mp4
                         help='输入源：可以是图像文件路径 (例如: inference/images/0304.png) 或包含图像的文件夹路径 (例如: inference/images/)')

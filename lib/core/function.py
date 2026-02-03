@@ -222,7 +222,8 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             ratio = shapes[0][1][0][0]
 
             t = time_synchronized()
-            det_out, da_seg_out, ll_seg_out, lane_robot_out = model(img)  # 输入模型 输出结果
+            # det_out, da_seg_out, ll_seg_out, lane_robot_out = model(img)  # 输入模型 输出结果
+            det_out, da_seg_out, ll_seg_out = model(img)  # 减少新车道线输出
             t_inf = time_synchronized() - t
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0),img.size(0))
@@ -245,16 +246,16 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             da_IoU_seg.update(da_IoU,img.size(0))
             da_mIoU_seg.update(da_mIoU,img.size(0))
 
-            # lane_acc_meter
-            for i in range(nb):
-                single_pred = lane_robot_out[i]
-                single_gt = target[3][i]
-                lane_accuracy, lane_fp, lane_fn = LaneEval.bench(np.array(single_pred.cpu()), np.array(single_gt.cpu()),
-                                                             np.array(row_anchor))
-                # 5. 更新 AverageMeter
-                lane_acc_meter.update(lane_accuracy, 1)
-                lane_fp_meter.update(lane_fp, 1)
-                lane_fn_meter.update(lane_fn, 1)
+            # lane_acc_meter  # 减少新车道线
+            # for i in range(nb):
+            #     single_pred = lane_robot_out[i]
+            #     single_gt = target[3][i]
+            #     lane_accuracy, lane_fp, lane_fn = LaneEval.bench(np.array(single_pred.cpu()), np.array(single_gt.cpu()),
+            #                                                  np.array(row_anchor))
+            #     # 5. 更新 AverageMeter
+            #     lane_acc_meter.update(lane_accuracy, 1)
+            #     lane_fp_meter.update(lane_fp, 1)
+            #     lane_fn_meter.update(lane_fn, 1)
 
             #lane line segment evaluation
             # _,ll_predict=torch.max(ll_seg_out, 1)  # (1, 2, 640, 640)
@@ -272,7 +273,8 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
             # ll_IoU_seg.update(ll_IoU,img.size(0))
             # ll_mIoU_seg.update(ll_mIoU,img.size(0))
             
-            total_loss, head_losses = criterion((train_out, da_seg_out, ll_seg_out, lane_robot_out), target, shapes,model)   #Compute loss 计算总损失
+            # total_loss, head_losses = criterion((train_out, da_seg_out, ll_seg_out, lane_robot_out), target, shapes,model)   #Compute loss 计算总损失
+            total_loss, head_losses = criterion((train_out, da_seg_out, ll_seg_out), target, shapes,model)   # 减少新车道线
             losses.update(total_loss.item(), img.size(0))
 
             #NMS
@@ -307,10 +309,10 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
                         _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
 
                         # lane_robot 保存车道线预测图
-                        lanes_result = postprocess_lanes_with_dims(lane_robot_out[i], 100, img_test.shape[1], img_test.shape[0])
-                        img_test2 = img_test.copy()
-                        result_img = visualize_lanes(img_test2, lanes_result)
-                        cv2.imwrite(save_dir + "/batch_{}_{}_ll_pred.png".format(epoch, i), result_img)
+                        # lanes_result = postprocess_lanes_with_dims(lane_robot_out[i], 100, img_test.shape[1], img_test.shape[0])
+                        # img_test2 = img_test.copy()
+                        # result_img = visualize_lanes(img_test2, lanes_result)
+                        # cv2.imwrite(save_dir + "/batch_{}_{}_ll_pred.png".format(epoch, i), result_img)
 
                         img_det = cv2.imread(paths[i])
                         img_gt = img_det.copy()
@@ -533,8 +535,9 @@ def validate(epoch,config, val_loader, val_dataset, model, criterion, output_dir
 
     #print segmet_result
     t = [T_inf.avg, T_nms.avg]
-    return da_segment_result, ll_segment_result, detect_result, lane_eval_result, losses.avg, maps, t
-        
+    # return da_segment_result, ll_segment_result, detect_result, lane_eval_result, losses.avg, maps, t
+    return da_segment_result, ll_segment_result, detect_result, losses.avg, maps, t
+
 
 
 class AverageMeter(object):

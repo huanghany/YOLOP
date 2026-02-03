@@ -9,6 +9,8 @@ import onnxsim
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YOLOP ONNX 导出脚本")
+    # parser.add_argument('--height', type=int, default=128, help='模型输入高度')
+    # parser.add_argument('--width', type=int, default=160, help='模型输入宽度')
     parser.add_argument('--height', type=int, default=256, help='模型输入高度')
     parser.add_argument('--width', type=int, default=320, help='模型输入宽度')
     args = parser.parse_args()
@@ -25,7 +27,8 @@ if __name__ == "__main__":
     try:
         # checkpoint = torch.load('/home/hhy/huayi/YOLOP/weights/save.pth', map_location=device)  # 要转换的模型
         # 为了方便演示，这里假设权重文件存在。如果不存在，会打印警告。
-        checkpoint_path = '/home/hhy/huayi/YOLOP/weights/save.pth'
+        # checkpoint_path = '/home/hhy/huayi/YOLOP/weights/save.pth'
+        checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/final_state_no_ll.pth'
         checkpoint = torch.load(checkpoint_path, map_location=device)
         if "state_dict" in checkpoint:
             model.load_state_dict(checkpoint['state_dict'])
@@ -41,10 +44,10 @@ if __name__ == "__main__":
     width = args.width
 
     # 建议为动态批处理模型起一个新名字以作区分
-    onnx_path = f'./weights/yolop-{height}-{width}-lane-v1-2.onnx'
+    onnx_path = f'./weights/yolop-{height}-{width}-lane-v3-1.onnx'
 
     # 创建一个批处理大小为1的示例输入，导出的模型将是动态的
-    inputs = torch.randn(1, 3, height, width)
+    inputs = torch.randn(2, 3, height, width)
 
     # ------------------- 关键改动：定义动态轴 -------------------
     # 定义输入和输出的名称
