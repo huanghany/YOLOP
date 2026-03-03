@@ -8,7 +8,7 @@ print(torch.cuda.device_count())
 # checkpoint = torch.load('./runs/BddDataset/_2025-05-22-15-25/epoch-300.pth')
 # checkpoint = torch.load('./runs/BddDataset/_2025-05-22-15-25/final_state.pth')
 # checkpoint = torch.load('/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-05-26-21-15/epoch-602.pth')
-checkpoint = torch.load('/home/huanghanyang/Project/YOLOP/weights/final_state_no_ll.pth')
+checkpoint = torch.load('/home/huanghanyang/Project/YOLOP/weights/yolop_lane_v2_7_final_state.pth', map_location='cuda:0')
 print(checkpoint.keys())
 optimizer = checkpoint['optimizer']
 # print(checkpoint['optimizer'])

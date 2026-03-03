@@ -68,7 +68,7 @@ YOLOP_lane_robot = [
 
     # 新添加的车道线头 (Parsing Head)
     # 输入来自模型第9层的输出 (SPP后的BottleneckCSP), 它的通道数是512
-    # [16, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head 车道线检测头
+    [16, LaneParsingHead, [256, (101, 56, 2)]]  # 43: Lane pasrsing head 车道线检测头
 ]
 
 YOLOP_lane_robot_no_ll_seg = [  # 去除了车道线分割层
@@ -113,7 +113,7 @@ YOLOP_lane_robot_no_ll_seg = [  # 去除了车道线分割层
     [-1, Conv, [8, 2, 3, 1]],  # 33 Driving area segmentation head 1 2 640 640
 
     # [16, LaneParsingHead, [256, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
-    [12, LaneParsingHead, [512, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
+    [16, LaneParsingHead, [256, (101, 56, 2)]]  # 34: Lane pasrsing head 车道线检测头
 ]
 
 class YOLOP_Lane_net(nn.Module):

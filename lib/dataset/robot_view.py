@@ -61,8 +61,8 @@ class RobotViewDataset(AutoDriveDataset):
         for mask in tqdm(list(self.mask_list)):
             mask_path = str(mask)
             label_path = mask_path.replace(str(self.mask_root), str(self.label_root)).replace(".png", ".json")
-            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")  # 图片后缀为jpg
-            # image_path = mask_path.replace(str(self.mask_root), str(self.img_root))  # 图片后缀为png
+            # image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")  # 图片后缀为jpg
+            image_path = mask_path.replace(str(self.mask_root), str(self.img_root))  # 图片后缀为png
 
             lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
             lane_robot_path = mask_path.replace(str(self.mask_root), str(self.lane_robot_root))  # 车道线数据路径

@@ -28,7 +28,7 @@ if __name__ == "__main__":
         # checkpoint = torch.load('/home/hhy/huayi/YOLOP/weights/save.pth', map_location=device)  # 要转换的模型
         # 为了方便演示，这里假设权重文件存在。如果不存在，会打印警告。
         # checkpoint_path = '/home/hhy/huayi/YOLOP/weights/save.pth'
-        checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/final_state_no_ll.pth'
+        checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/yolop-256-320-lane-simv3_no_ll_seg.pth'
         checkpoint = torch.load(checkpoint_path, map_location=device)
         if "state_dict" in checkpoint:
             model.load_state_dict(checkpoint['state_dict'])
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     width = args.width
 
     # 建议为动态批处理模型起一个新名字以作区分
-    onnx_path = f'./weights/yolop-{height}-{width}-lane-v3-1.onnx'
+    onnx_path = f'./weights/yolop-{height}-{width}-lane-simv3-batch.onnx'
 
     # 创建一个批处理大小为1的示例输入，导出的模型将是动态的
     inputs = torch.randn(2, 3, height, width)

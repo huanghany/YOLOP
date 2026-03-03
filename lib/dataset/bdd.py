@@ -33,7 +33,7 @@ class BddDataset(AutoDriveDataset):
             mask_path = str(mask)
             label_path = mask_path.replace(str(self.mask_root), str(self.label_root)).replace(".png", ".json")
             # image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")
-            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".png")
+            image_path = mask_path.replace(str(self.mask_root), str(self.img_root))
             lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
             with open(label_path, 'r') as f:
                 label = json.load(f)

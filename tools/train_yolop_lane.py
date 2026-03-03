@@ -175,11 +175,13 @@ def main():
             det_idx_range = [str(i) for i in range(0, 34)]  # 检测分支相关的参数索引  (0,25)
             model_dict = model.state_dict()  # 获取当前模型的状态字典
             checkpoint_file = cfg.MODEL.PRETRAINED_DET
-            checkpoint = torch.load(checkpoint_file)
+            # checkpoint = torch.load(checkpoint_file, map_location='cuda:0')
+            checkpoint = torch.load(checkpoint_file, map_location=device)
             # begin_epoch = checkpoint['epoch']
             # last_epoch = checkpoint['epoch']
             # 过滤检查点中只与检测分支相关的权重
-            checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
+            # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
+            checkpoint_dict = {k: v for k, v in checkpoint.items() if k.split(".")[1] in det_idx_range}
             model_dict.update(checkpoint_dict)  # 更新模型状态字典
             model.load_state_dict(model_dict)  # 加载模型权重
             logger.info("=> 已加载检测分支检查点 '{}' ".format(checkpoint_file))

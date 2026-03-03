@@ -174,7 +174,7 @@ def detect(cfg, opt):
             # Blend the overlay with the result_img
             # result_img = original_img * (1-alpha) + color_overlay_da * alpha
             alpha_da = 0.3  # Transparency of the drivable area
-            cv2.addWeighted(color_overlay_da, alpha_da, result_img, 1 - alpha_da, 0, result_img)
+            # cv2.addWeighted(color_overlay_da, alpha_da, result_img, 1 - alpha_da, 0, result_img)
 
         # 但在实际项目中，请直接修改顶部的 postprocess_lanes 函数
         def _postprocess_lanes_with_dims(output, griding_num, actual_img_w, actual_img_h):
@@ -228,12 +228,12 @@ def detect(cfg, opt):
         # result_img = img_orig_det.copy()
 
         # 绘制目标检测框
-        if len(det):
-            # 将检测框坐标缩放回原始图像尺寸
-            det[:, :4] = scale_coords(img_tensor.shape[2:], det[:, :4], result_img.shape).round()
-            for *xyxy, conf, cls in reversed(det):
-                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                plot_one_box(xyxy, result_img, label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+        # if len(det):
+        #     # 将检测框坐标缩放回原始图像尺寸
+        #     det[:, :4] = scale_coords(img_tensor.shape[2:], det[:, :4], result_img.shape).round()
+        #     for *xyxy, conf, cls in reversed(det):
+        #         label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+        #         plot_one_box(xyxy, result_img, label=label_det_pred, color=colors[int(cls)], line_thickness=2)
 
         # 绘制车道线
         result_img = visualize_lanes(result_img, lanes)
@@ -292,24 +292,26 @@ def detect(cfg, opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str,
-                        default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-06-19-17-50(backbone+lane_head)/final_state.pth',
+                        # default='/home/huayi/hhy/YOLOP/runs/RobotViewDataset/_2025-06-19-17-50(backbone+lane_head)/final_state.pth',
+                        default='/home/huanghanyang/Project/YOLOP/runs/RobotViewDataset/_2026-02-04-21-43/epoch-300.pth',
                         # 请替换为你的模型权重路径
                         help='模型权重文件路径，例如: runs/RobotViewDataset/_2025-05-29-17-00(warmup)/final_state.pth')
     parser.add_argument('--source', type=str,
                         # default='/home/huayi/hhy/Datasets/Lane_robot/shanxing/20250121-165847_山行左侧双向植保_auto.mp4',
-                        default='/home/huayi/hhy/YOLOP/inference/robot_1',
+                        # default='/home/huayi/hhy/YOLOP/inference/robot_1',
+                        default='/home/huanghanyang/Datasets/Lane_robot/lane_datasets_v4/gt_image/val',
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/2025-01-17-10-42-49_front.mp4
                         # /home/huayi/hhy/Datasets/Lane_robot/aiwei_test_video/20250415-181616_全流程产量巡检_5m_auto.mp4
                         help='输入源：可以是图像文件路径 (例如: inference/images/0304.png) 或包含图像的文件夹路径 (例如: inference/images/)')
     parser.add_argument('--img-size', type=int, default=320, help='推理时模型输入的图像尺寸 (正方形像素)')
-    parser.add_argument('--save', type=bool, default=False, help='是否保存处理后的图像到 --save-dir 指定的目录')
+    parser.add_argument('--save', type=bool, default=True, help='是否保存处理后的图像到 --save-dir 指定的目录')
     parser.add_argument('--show', type=bool, default=False, help='是否显示处理后的图像窗口')
 
     parser.add_argument('--griding-num', type=int, default=100, help='车道线模型输出的栅格数量')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='目标检测的置信度阈值')
     parser.add_argument('--iou-thres', type=float, default=0.2, help='目标检测的IOU阈值 (用于NMS)')
     parser.add_argument('--device', default='0, 1', help='运行设备，例如: "0" (GPU 0), "0,1,2,3" (多GPU), 或 "cpu"')
-    parser.add_argument('--save-dir', type=str, default='/home/huayi/hhy/YOLOP/inference/robot_result_layer_16_lane',
+    parser.add_argument('--save-dir', type=str, default='/home/huanghanyang/Datasets/Lane_robot/lane_datasets_v4/gt_image/val_result',
                         help='保存推理结果的目录')
     parser.add_argument('--augment', action='store_true', help='是否使用数据增强进行推理 (通常不用于推理)')
     parser.add_argument('--update', action='store_true', help='是否更新所有模型 (通常不用于推理)')
