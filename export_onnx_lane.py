@@ -25,10 +25,10 @@ if __name__ == "__main__":
 
     # 请确保您的权重路径是正确的
     try:
-        # checkpoint = torch.load('/home/hhy/huayi/YOLOP/weights/save.pth', map_location=device)  # 要转换的模型
+        # 要转换的模型
         # 为了方便演示，这里假设权重文件存在。如果不存在，会打印警告。
-        # checkpoint_path = '/home/hhy/huayi/YOLOP/weights/save.pth'
-        checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/yolop-256-320-lane-simv3_no_ll_seg.pth'
+        # checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/yolop-256-320-lane-simv3_no_ll_seg.pth'  # sim
+        checkpoint_path = '/home/huanghanyang/Project/YOLOP/weights/yolop_lane_v6_0_final_state_no_ll_seg.pth'  # v6_0
         checkpoint = torch.load(checkpoint_path, map_location=device)
         if "state_dict" in checkpoint:
             model.load_state_dict(checkpoint['state_dict'])
@@ -44,9 +44,11 @@ if __name__ == "__main__":
     width = args.width
 
     # 建议为动态批处理模型起一个新名字以作区分
-    onnx_path = f'./weights/yolop-{height}-{width}-lane-simv3-batch.onnx'
+    # onnx_path = f'./weights/yolop-{height}-{width}-lane-simv3-batch.onnx'  # sim
+    onnx_path = f'./weights/yolop-{height}-{width}-lane-v6-batch2.onnx'  # v6_0
 
     # 创建一个批处理大小为1的示例输入，导出的模型将是动态的
+    # inputs = torch.randn(2, 3, height, width)
     inputs = torch.randn(2, 3, height, width)
 
     # ------------------- 关键改动：定义动态轴 -------------------
@@ -66,12 +68,12 @@ if __name__ == "__main__":
         model,
         inputs,
         onnx_path,
-        verbose=False,
+        verbose=True,
         opset_version=12,
         input_names=input_names,
         output_names=output_names,
         # ------------------- 关键改动：在导出时传入 dynamic_axes -------------------
-        dynamic_axes=dynamic_axes
+        # dynamic_axes=dynamic_axes
     )
     print(f"成功将模型转换为ONNX: {onnx_path}")
 
@@ -102,18 +104,18 @@ if __name__ == "__main__":
 
         print('\n--- 使用不同批处理大小进行测试 ---')
         # 测试 batch_size = 1
-        print("正在测试 batch_size = 1...")
-        inputs_b1 = torch.randn(1, 3, height, width).cpu().numpy()
-        ort_inputs_b1 = {sess.get_inputs()[0].name: inputs_b1}
-        ort_outs_b1 = sess.run(None, ort_inputs_b1)
-        print(f"batch_size=1 时，第一个输出的形状: {ort_outs_b1[0].shape}")
+        # print("正在测试 batch_size = 1...")
+        # inputs_b1 = torch.randn(1, 3, height, width).cpu().numpy()
+        # ort_inputs_b1 = {sess.get_inputs()[0].name: inputs_b1}
+        # ort_outs_b1 = sess.run(None, ort_inputs_b1)
+        # print(f"batch_size=1 时，第一个输出的形状: {ort_outs_b1[0].shape}")
 
-        # 测试 batch_size = 4
-        print("\n正在测试 batch_size = 4...")
-        inputs_b4 = torch.randn(4, 3, height, width).cpu().numpy()
-        ort_inputs_b4 = {sess.get_inputs()[0].name: inputs_b4}
-        ort_outs_b4 = sess.run(None, ort_inputs_b4)
-        print(f"batch_size=4 时，第一个输出的形状: {ort_outs_b4[0].shape}")
+        # 测试 batch_size = 2
+        print("\n正在测试 batch_size = 2...")
+        inputs_b2 = torch.randn(2, 3, height, width).cpu().numpy()
+        ort_inputs_b2 = {sess.get_inputs()[0].name: inputs_b2}
+        ort_outs_b2 = sess.run(None, ort_inputs_b2)
+        print(f"batch_size=2 时，第一个输出的形状: {ort_outs_b2[0].shape}")
 
         print('\n成功使用 onnxruntime 读取并测试ONNX模型。')
     except Exception as e:

@@ -252,7 +252,8 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
         print(f"错误: 模型文件未找到: {onnx_model_path}")
         return
 
-    execution_provider = "CUDAExecutionProvider" if ort.get_device() == 'GPU' else "CPUExecutionProvider"
+    # execution_provider = "CUDAExecutionProvider" if ort.get_device() == 'GPU' else "CPUExecutionProvider"
+    execution_provider = "CPUExecutionProvider"
     try:
         session_options = ort.SessionOptions()
         session_options.intra_op_num_threads = 4  # 算子内并行线程数
@@ -413,14 +414,18 @@ def infer_yolop(onnx_model_path="yolop-256-320-lane.onnx",
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="YOLOP ONNX模型推理脚本 (NumPy NMS)，支持预热和可选图片保存。")
-    parser.add_argument('--model', type=str, default="./weights/yolop-256-320-lane-v2-3.onnx", help='ONNX模型权重路径')
+    # parser.add_argument('--model', type=str, default="./weights/yolop-256-320-lane-simv3-batch_20260303_1.onnx", help='ONNX模型权重路径')
+    # parser.add_argument('--model', type=str, default="./weights/yolop-256-320-lane-v4-1-1.onnx", help='ONNX模型权重路径')
+    # parser.add_argument('--model', type=str, default="./weights/yolop_lane_b1_256x320_op13.onnx", help='ONNX模型权重路径')
+    parser.add_argument('--model', type=str, default="./weights/yolop_lane_b1_256x320_op13.onnx", help='ONNX模型权重路径')
     # v1.0    ./weights/yolop-256-320-lane-v1-0.onnx
     # v1.1    ./weights/yolop-256-320-lane-v1-1.onnx
     # v1.2    ./weights/yolop-256-320-lane-v1-2.onnx
-    parser.add_argument('--img', type=str, default="./inference/robot_1/0114.png", help='推理图片路径')
+    parser.add_argument('--img', type=str, default="./inference/data_test/左边行间有人_front_560.png", help='推理图片路径')  # sim_pic
+    # parser.add_argument('--img', type=str, default="./inference/data_test/tianren-20260129-front_84.png", help='推理图片路径')  # tianren_pic
     parser.add_argument('--output_dir', type=str, default="./inference/data_test", help='保存结果的目录')
-    parser.add_argument('--num_runs', type=int, default=1, help='计算平均推理时间的正式运行次数')
-    parser.add_argument('--warmup_runs', type=int, default=1, help='模型预热运行次数 (0表示不预热)')
+    parser.add_argument('--num_runs', type=int, default=50, help='计算平均推理时间的正式运行次数')
+    parser.add_argument('--warmup_runs', type=int, default=3, help='模型预热运行次数 (0表示不预热)')
     parser.add_argument('--save_image', type=float, default=True, help='是否保存输出图片 (默认不保存)')
 
     parser.add_argument('--griding_num', type=int, default=100, help='车道线后处理的栅格数量')

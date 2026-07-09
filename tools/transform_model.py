@@ -98,8 +98,8 @@ if __name__ == '__main__':
     # =================================================================================
 
     # 1. 设置输入和输出文件路径
-    INPUT_PTH_PATH = '/home/huanghanyang/Project/YOLOP/weights/yolop-256-320-lane-simv3.pth'  # 你的原始模型文件
-    OUTPUT_PTH_PATH = '/home/huanghanyang/Project/YOLOP/weights/yolop-256-320-lane-simv3_no_ll_seg.pth'  # 你想保存的新模型文件
+    INPUT_PTH_PATH = '/home/huanghanyang/Project/YOLOP/weights/yolop_lane_v6_0_final_state.pth'  # 你的原始模型文件
+    OUTPUT_PTH_PATH = '/home/huanghanyang/Project/YOLOP/weights/yolop_lane_v6_0_final_state_no_ll_seg.pth'  # 你想保存的新模型文件
 
     # 2. 指定要删除的层的索引范围 (从0开始计数)
     #    删除第34层到第42层，对应的索引是 33 到 41

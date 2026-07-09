@@ -216,8 +216,8 @@ def get_YOLOP_LANE_net(cfg, **kwargs):
     Returns:
 
     """
-    # m_block_cfg = YOLOP_lane_robot
-    m_block_cfg = YOLOP_lane_robot_no_ll_seg
+    m_block_cfg = YOLOP_lane_robot
+    # m_block_cfg = YOLOP_lane_robot_no_ll_seg
     model = YOLOP_Lane_net(m_block_cfg, **kwargs)
     return model
 
